@@ -19,10 +19,18 @@ Determinism
 -----------
 
 :class:`~tests.helpers.repo_builder.RepoBuilder` fixes author identity and
-commit timestamps, so everything in a report is reproducible except commit
-shas, the wall-clock ``generated_at`` and the temp-directory ``repo_path``.
+spaces commit timestamps one hour apart from the scenario's ``start_time``,
+so everything in a report is reproducible except commit shas, the wall-clock
+``generated_at`` and the temp-directory ``repo_path``.
 :func:`normalize_report` erases those three and nothing else — see its
 docstring for why each is unavoidable rather than merely inconvenient.
+
+``start_time`` defaults to *now* minus :data:`HISTORY_OFFSET_DAYS`, not a
+fixed date: the risk engine's churn/co-change factors read
+``git log --since=<history_days>.days.ago``, which is evaluated at analysis
+time. Only commit *counts* ever reach a snapshot, never timestamps, so a
+floating start stays byte-for-byte reproducible while keeping the history
+factors permanently in-window.
 
 Regenerating
 ------------
@@ -42,6 +50,7 @@ import json
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -67,6 +76,22 @@ TIME_PLACEHOLDER = "<generated-at>"
 #: Matches a full or abbreviated git object name. Seven characters is git's own
 #: minimum abbreviation, so anything shorter is a word, not a sha.
 _SHA_RE = re.compile(r"\b[0-9a-f]{7,40}\b")
+
+#: How far back a scenario's history starts when it does not set ``start_time``.
+#: Comfortably inside ``AnalysisConfig.history_days`` (90), with enough headroom
+#: that even a scenario with dozens of hourly commits stays in-window.
+#:
+#: This MUST stay relative to *now*. The corpus originally built every repo at
+#: ``RepoBuilder``'s fixed 2024-01-01, which aged out of the 90-day window and
+#: left churn/co_change reporting "unavailable" in all eight snapshots — two of
+#: S4's five factors were regression-invisible. A fixed date here would
+#: reintroduce the same blind spot one window-length from now.
+HISTORY_OFFSET_DAYS = 30
+
+
+def _fresh_history_start() -> datetime:
+    """First-commit timestamp placing a scenario's history inside the risk window."""
+    return datetime.now(UTC) - timedelta(days=HISTORY_OFFSET_DAYS)
 
 
 # --------------------------------------------------------------- the scenario
@@ -97,6 +122,16 @@ class Scenario:
     config_overrides: dict[str, Any] = field(default_factory=dict)
     """Fields set on the default :class:`~mergesignal.config.Config`."""
 
+    start_time: datetime | None = None
+    """Timestamp of the repo's first commit.
+
+    ``None`` (the default) means "inside the risk engine's history window" —
+    see :data:`HISTORY_OFFSET_DAYS` — so churn and co-change are *measured* in
+    every snapshot rather than silently unavailable. Pass an explicit old
+    datetime only for a scenario whose point is history falling outside the
+    window.
+    """
+
     @property
     def snapshot_path(self) -> Path:
         """Location of this scenario's committed golden JSON."""
@@ -104,7 +139,7 @@ class Scenario:
 
     def build(self, path: Path) -> Path:
         """Run the RepoBuilder script in ``path`` and return the repository."""
-        builder = RepoBuilder(path)
+        builder = RepoBuilder(path, start_time=self.start_time or _fresh_history_start())
         self.script(builder)
         return builder.build()
 
@@ -392,6 +427,34 @@ def _empty_diff(builder: RepoBuilder) -> None:
     builder.file("only.py", "def only():\n    return 1\n").commit("the only commit")
 
 
+def _hot_history(builder: RepoBuilder) -> None:
+    """A coupled past that the diff ignores — the S4 history factors firing.
+
+    ``api.py`` and ``api_client.py`` are committed together three times on
+    ``main``; ``feature`` then rewrites ``api.py`` alone. Inside the history
+    window that yields churn ≈ 3 commits/file on the touched path and a
+    co-change partner (``api_client.py``, support 3 ≥ min 2) that the diff does
+    not touch — the "you forgot its partner" finding S4 exists to produce.
+
+    This is the scenario that pins the corpus's history coverage: without it,
+    churn and co_change could be measured-but-always-zero everywhere and a
+    broken ``collect_history`` would still produce green snapshots.
+    """
+    builder.file("api.py", "def api():\n    return 1\n")
+    builder.file("api_client.py", "from api import api\n\nAPI = api\n")
+    builder.commit("add api and its client")
+    builder.file("api.py", "def api():\n    return 2\n")
+    builder.file("api_client.py", "from api import api\n\nAPI = api  # rev 2\n")
+    builder.commit("rev api and client")
+    builder.file("api.py", "def api():\n    return 3\n")
+    builder.file("api_client.py", "from api import api\n\nAPI = api  # rev 3\n")
+    builder.commit("rev api and client again")
+
+    builder.branch("feature")
+    builder.file("api.py", "def api():\n    return 4\n")
+    builder.commit("rewrite api without its client")
+
+
 #: The corpus. Order is the order snapshots are listed and tests are run.
 SCENARIOS: list[Scenario] = [
     Scenario(
@@ -436,6 +499,11 @@ SCENARIOS: list[Scenario] = [
         script=_empty_diff,
         base="main",
         head="main",
+    ),
+    Scenario(
+        name="hot_history",
+        description="coupled files with in-window history; churn and co_change produce real factors",
+        script=_hot_history,
     ),
 ]
 

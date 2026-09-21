@@ -292,3 +292,45 @@ def test_empty_diff_skips_everything(run_scenario) -> None:
         assert report.signal(name).status == "skipped", name
     # Conflicts can honestly answer "already merged" rather than skipping.
     assert report.signal("conflicts").status in ("ok", "skipped")
+
+
+@pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda s: s.name)
+def test_history_factors_are_measured(scenario: Scenario, run_scenario) -> None:
+    """churn and co_change must be *measured* in every scored scenario.
+
+    This is the corpus-wide tripwire for the blind spot it was written to fix:
+    every scenario repo originally started at a fixed 2024-01-01, which aged
+    out of the risk engine's ``--since=<history_days>`` window, so both
+    history-derived factors reported ``unavailable`` in all eight snapshots —
+    a regression in :func:`mergesignal.git.history.collect_history` would have
+    produced green tests. ``Scenario.start_time`` now defaults to inside the
+    window, and this test fails loudly if the corpus ever drifts out again.
+    """
+    report, _, _ = run_scenario(scenario)
+    risk = report.signal("risk")
+    if risk.status == "skipped":
+        pytest.skip("an empty diff carries no history question")
+    assert risk.status != "error", risk.summary
+    assert "churn" in risk.metadata["factors"], f"{scenario.name}: churn unavailable"
+    assert "co_change" in risk.metadata["factors"], f"{scenario.name}: co_change unavailable"
+
+
+def test_hot_history_scores_real_churn_and_coupling(run_scenario) -> None:
+    """The history factors must produce *nonzero* values, not merely exist.
+
+    ``hot_history`` commits ``api.py`` and ``api_client.py`` together three
+    times, then changes ``api.py`` alone: churn registers ~3 commits/file and
+    co_change must flag ``api_client.py`` as a coupled partner missing from the
+    diff — the exact "you forgot its partner" finding S4 exists to emit.
+    """
+    report, _, _ = run_scenario(BY_NAME["hot_history"])
+    risk = report.signal("risk")
+    assert risk.status == "findings"
+
+    factors = risk.metadata["factors"]
+    assert factors["churn"] > 0, "in-window history must register"
+    assert factors["co_change"] > 0, "the coupled partner must be flagged"
+
+    co_change = next(f for f in risk.findings if f.evidence.get("factor") == "co_change")
+    assert co_change.evidence["missing_partners"] == {"api.py": ["api_client.py"]}
+    assert co_change.severity == "high"

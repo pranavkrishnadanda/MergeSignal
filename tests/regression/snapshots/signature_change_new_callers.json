@@ -6,12 +6,16 @@
   "repo_path": "<repo>",
   "risk_score": {
     "factors": {
+      "churn": 0.1,
+      "co_change": 0.0,
       "diff_size": 0.02,
       "test_coverage": 1.0
     },
-    "level": "medium",
-    "score": 51.0,
+    "level": "low",
+    "score": 23.7,
     "weights": {
+      "churn": 0.25,
+      "co_change": 0.2,
       "diff_size": 0.15,
       "test_coverage": 0.15
     }
@@ -109,6 +113,28 @@
     {
       "findings": [
         {
+          "confidence": "medium",
+          "detail": "recent churn on the touched paths: 10% of the maximum. 1.0 commits per touched file in the last 90 days.",
+          "evidence": {
+            "commits_scanned": 1,
+            "factor": "churn",
+            "mean_commits_per_file": 1.0,
+            "per_path": {
+              "render.py": 1
+            },
+            "saturation_commits": 10,
+            "truncated": false,
+            "value": 0.1,
+            "weight": 0.25,
+            "window_days": 90
+          },
+          "file": null,
+          "line": null,
+          "severity": "low",
+          "signal": "risk",
+          "title": "risk factor churn: 10% (weight 0.25)"
+        },
+        {
           "confidence": "high",
           "detail": "diff size: 2% of the maximum. 1 files and 2 churned lines.",
           "evidence": {
@@ -151,33 +177,37 @@
       "metadata": {
         "churned_lines": 2,
         "factors": {
+          "churn": 0.1,
+          "co_change": 0.0,
           "diff_size": 0.02,
           "test_coverage": 1.0
         },
         "files": 1,
-        "level": "medium",
+        "level": "low",
         "risk_score": {
           "factors": {
+            "churn": 0.1,
+            "co_change": 0.0,
             "diff_size": 0.02,
             "test_coverage": 1.0
           },
-          "level": "medium",
-          "score": 51.0,
+          "level": "low",
+          "score": 23.7,
           "weights": {
+            "churn": 0.25,
+            "co_change": 0.2,
             "diff_size": 0.15,
             "test_coverage": 0.15
           }
         },
-        "score": 51.0,
+        "score": 23.7,
         "unavailable_factors": [
-          "churn",
-          "co_change",
           "hot_paths"
         ]
       },
       "name": "risk",
       "status": "findings",
-      "summary": "risk 51/100 (medium); churn, co_change, hot_paths unavailable"
+      "summary": "risk 24/100 (low); hot_paths unavailable"
     }
   ],
   "version": "1"

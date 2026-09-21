@@ -6,13 +6,13 @@
   "repo_path": "<repo>",
   "risk_score": {
     "factors": {
-      "churn": 0.1,
-      "co_change": 0.0,
+      "churn": 0.3,
+      "co_change": 1.0,
       "diff_size": 0.02,
       "test_coverage": 1.0
     },
-    "level": "low",
-    "score": 23.7,
+    "level": "medium",
+    "score": 57.1,
     "weights": {
       "churn": 0.25,
       "co_change": 0.2,
@@ -35,65 +35,22 @@
       "summary": "merges cleanly; no textual conflicts"
     },
     {
-      "findings": [
-        {
-          "confidence": "medium",
-          "detail": "head renames function 'load_settings' to 'read_settings' (settings.py:1), while base references the old name at startup.py:1, startup.py:5. Rename detection is a heuristic, so confirm before acting.",
-          "evidence": {
-            "change": "renamed",
-            "change_confidence": "medium",
-            "changed_side": "head",
-            "definition": {
-              "end_line": 3,
-              "file": "settings.py",
-              "line": 1,
-              "parent": null,
-              "signature": "(path)"
-            },
-            "new_name": "read_settings",
-            "old_file": "settings.py",
-            "old_name": "load_settings",
-            "pattern": "renamed_old_name_referenced",
-            "reference_count": 2,
-            "reference_side": "base",
-            "references": [
-              {
-                "context": "from settings import load_settings",
-                "file": "startup.py",
-                "line": 1
-              },
-              {
-                "context": "return load_settings('app.ini')",
-                "file": "startup.py",
-                "line": 5
-              }
-            ],
-            "references_truncated": false,
-            "symbol": "read_settings",
-            "symbol_kind": "function"
-          },
-          "file": "startup.py",
-          "line": 1,
-          "severity": "high",
-          "signal": "semantic",
-          "title": "'load_settings' renamed to 'read_settings' on head but referenced on base"
-        }
-      ],
+      "findings": [],
       "metadata": {
-        "changes_considered": 3,
+        "changes_considered": 0,
         "languages": [
           "python"
         ],
         "patterns": {
           "removed_symbol_still_referenced": 0,
-          "renamed_old_name_referenced": 1,
+          "renamed_old_name_referenced": 0,
           "signature_changed_new_callers": 0
         },
-        "references_considered": 3
+        "references_considered": 0
       },
       "name": "semantic",
-      "status": "findings",
-      "summary": "1 potential semantic issue: 1 renamed-old-name-referenced"
+      "status": "ok",
+      "summary": "no semantic breakage detected"
     },
     {
       "findings": [],
@@ -108,17 +65,17 @@
       "findings": [
         {
           "confidence": "medium",
-          "detail": "recent churn on the touched paths: 10% of the maximum. 1.0 commits per touched file in the last 90 days.",
+          "detail": "recent churn on the touched paths: 30% of the maximum. 3.0 commits per touched file in the last 90 days.",
           "evidence": {
-            "commits_scanned": 1,
+            "commits_scanned": 3,
             "factor": "churn",
-            "mean_commits_per_file": 1.0,
+            "mean_commits_per_file": 3.0,
             "per_path": {
-              "settings.py": 1
+              "api.py": 3
             },
             "saturation_commits": 10,
             "truncated": false,
-            "value": 0.1,
+            "value": 0.3,
             "weight": 0.25,
             "window_days": 90
           },
@@ -126,7 +83,30 @@
           "line": null,
           "severity": "low",
           "signal": "risk",
-          "title": "risk factor churn: 10% (weight 0.25)"
+          "title": "risk factor churn: 30% (weight 0.25)"
+        },
+        {
+          "confidence": "medium",
+          "detail": "historically coupled files missing from this diff: 100% of the maximum. 1 of 1 touched files usually change together with files this diff does not touch.",
+          "evidence": {
+            "factor": "co_change",
+            "min_support": 2,
+            "missing_partners": {
+              "api.py": [
+                "api_client.py"
+              ]
+            },
+            "paths_considered": 1,
+            "paths_with_missing_partners": 1,
+            "value": 1.0,
+            "weight": 0.2,
+            "window_days": 90
+          },
+          "file": null,
+          "line": null,
+          "severity": "high",
+          "signal": "risk",
+          "title": "risk factor co_change: 100% (weight 0.2)"
         },
         {
           "confidence": "high",
@@ -156,7 +136,7 @@
             "untouched_tests": 0,
             "value": 1.0,
             "verdicts": {
-              "settings.py": "no test found"
+              "api.py": "no test found"
             },
             "weight": 0.15,
             "without_tests": 1
@@ -171,22 +151,22 @@
       "metadata": {
         "churned_lines": 2,
         "factors": {
-          "churn": 0.1,
-          "co_change": 0.0,
+          "churn": 0.3,
+          "co_change": 1.0,
           "diff_size": 0.02,
           "test_coverage": 1.0
         },
         "files": 1,
-        "level": "low",
+        "level": "medium",
         "risk_score": {
           "factors": {
-            "churn": 0.1,
-            "co_change": 0.0,
+            "churn": 0.3,
+            "co_change": 1.0,
             "diff_size": 0.02,
             "test_coverage": 1.0
           },
-          "level": "low",
-          "score": 23.7,
+          "level": "medium",
+          "score": 57.1,
           "weights": {
             "churn": 0.25,
             "co_change": 0.2,
@@ -194,14 +174,14 @@
             "test_coverage": 0.15
           }
         },
-        "score": 23.7,
+        "score": 57.1,
         "unavailable_factors": [
           "hot_paths"
         ]
       },
       "name": "risk",
       "status": "findings",
-      "summary": "risk 24/100 (low); hot_paths unavailable"
+      "summary": "risk 57/100 (medium); hot_paths unavailable"
     }
   ],
   "version": "1"

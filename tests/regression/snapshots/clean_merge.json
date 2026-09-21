@@ -6,12 +6,16 @@
   "repo_path": "<repo>",
   "risk_score": {
     "factors": {
+      "churn": 0.0,
+      "co_change": 0.0,
       "diff_size": 0.04,
       "test_coverage": 0.0
     },
     "level": "low",
-    "score": 2.0,
+    "score": 0.8,
     "weights": {
+      "churn": 0.25,
+      "co_change": 0.2,
       "diff_size": 0.15,
       "test_coverage": 0.15
     }
@@ -81,6 +85,8 @@
       "metadata": {
         "churned_lines": 7,
         "factors": {
+          "churn": 0.0,
+          "co_change": 0.0,
           "diff_size": 0.04,
           "test_coverage": 0.0
         },
@@ -88,26 +94,28 @@
         "level": "low",
         "risk_score": {
           "factors": {
+            "churn": 0.0,
+            "co_change": 0.0,
             "diff_size": 0.04,
             "test_coverage": 0.0
           },
           "level": "low",
-          "score": 2.0,
+          "score": 0.8,
           "weights": {
+            "churn": 0.25,
+            "co_change": 0.2,
             "diff_size": 0.15,
             "test_coverage": 0.15
           }
         },
-        "score": 2.0,
+        "score": 0.8,
         "unavailable_factors": [
-          "churn",
-          "co_change",
           "hot_paths"
         ]
       },
       "name": "risk",
       "status": "findings",
-      "summary": "risk 2/100 (low); churn, co_change, hot_paths unavailable"
+      "summary": "risk 1/100 (low); hot_paths unavailable"
     }
   ],
   "version": "1"
