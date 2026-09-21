@@ -1,0 +1,146 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A new push to a PR makes the in-flight run obsolete; don't pay for it twice.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Keep pip quiet and deterministic in logs.
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+  # Never let a developer's or runner's ambient credentials reach the tests;
+  # MergeSignal is offline-capable by design (FR-8) and the suite must prove it.
+  GITHUB_TOKEN: ""
+
+jobs:
+  lint:
+    name: ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install
+        run: python -m pip install -e ".[dev]"
+
+      - name: ruff check
+        run: ruff check src tests
+
+      - name: ruff format --check
+        run: ruff format --check src tests
+        continue-on-error: true
+
+  test:
+    name: pytest (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The history signals (S4 churn, co-change) walk `git log`, and the
+          # end-to-end test analyses this repository itself. A shallow clone
+          # would leave both with nothing to read.
+          fetch-depth: 0
+
+      # MergeSignal's conflict oracle is `git merge-tree --write-tree`, which
+      # landed in git 2.38 (2022-10). Older git silently falls back to the
+      # temporary-worktree path, so the merge-tree code would go untested — fail
+      # loudly instead of testing something other than what ships.
+      #
+      # ubuntu-latest images carry git 2.4x, so this is a guard, not a build step.
+      - name: Check git >= 2.38
+        run: |
+          set -euo pipefail
+          version="$(git --version | awk '{print $3}')"
+          echo "git version: ${version}"
+          major="${version%%.*}"
+          rest="${version#*.}"
+          minor="${rest%%.*}"
+          if [ "${major}" -lt 2 ] || { [ "${major}" -eq 2 ] && [ "${minor}" -lt 38 ]; }; then
+            echo "::error::git >= 2.38 required for 'merge-tree --write-tree' (found ${version})"
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install
+        run: python -m pip install -e ".[dev]"
+
+      # RepoBuilder commits with a fixed identity, but git still refuses to run
+      # at all without a global user in some environments.
+      - name: Configure git
+        run: |
+          git config --global user.name "MergeSignal CI"
+          git config --global user.email "ci@example.invalid"
+          git config --global init.defaultBranch main
+
+      - name: Smoke test the console script
+        run: |
+          mergesignal --version
+          mergesignal --help
+
+      - name: pytest
+        run: pytest -q --cov=mergesignal --cov-report=term-missing
+
+      # The golden corpus is only a regression test if CI never rewrites it.
+      # `--snapshot-update` is opt-in and must never be passed above; this
+      # catches a snapshot accidentally regenerated and committed in a state
+      # that does not match the committed code.
+      - name: Verify golden snapshots are unmodified
+        run: git diff --exit-code -- tests/regression/snapshots
+
+      - name: Analyze this repository with itself
+        run: |
+          # Exit 0 (clean) and 1 (findings) are both successful runs; only 2 is
+          # a failure, so the dogfooding step tests the tool, not the diff.
+          mergesignal analyze --base "${{ github.event.pull_request.base.sha || 'HEAD~1' }}" \
+                              --head HEAD --format md || [ "$?" -eq 1 ]
+
+  build:
+    name: build + install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Proves `pip install .` works from a clean wheel in a fresh virtualenv —
+      # the path every user takes, and the one an editable install never covers
+      # (a missing package in `[tool.setuptools.packages.find]` is invisible to
+      # `pip install -e .` because the source tree is on the path regardless).
+      - name: Build wheel and sdist
+        run: |
+          python -m pip install build
+          python -m build
+
+      - name: Install the wheel in a fresh virtualenv
+        run: |
+          python -m venv /tmp/fresh
+          /tmp/fresh/bin/pip install dist/*.whl
+          /tmp/fresh/bin/mergesignal --version
+          /tmp/fresh/bin/mergesignal --help

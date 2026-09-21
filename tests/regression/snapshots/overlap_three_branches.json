@@ -1,0 +1,218 @@
+{
+  "base": "main",
+  "generated_at": "<generated-at>",
+  "head": "feature",
+  "merge_base": "<sha>",
+  "repo_path": "<repo>",
+  "risk_score": {
+    "factors": {
+      "diff_size": 0.02,
+      "test_coverage": 1.0
+    },
+    "level": "medium",
+    "score": 51.0,
+    "weights": {
+      "diff_size": 0.15,
+      "test_coverage": 0.15
+    }
+  },
+  "signals": [
+    {
+      "findings": [],
+      "metadata": {
+        "clean": true,
+        "conflicted_files": 0,
+        "regions": 0,
+        "strategy": "merge-tree",
+        "up_to_date": false
+      },
+      "name": "conflicts",
+      "status": "ok",
+      "summary": "merges cleanly; no textual conflicts"
+    },
+    {
+      "findings": [],
+      "metadata": {
+        "changes_considered": 1,
+        "languages": [
+          "python"
+        ],
+        "patterns": {
+          "removed_symbol_still_referenced": 0,
+          "renamed_old_name_referenced": 0,
+          "signature_changed_new_callers": 0
+        },
+        "references_considered": 3
+      },
+      "name": "semantic",
+      "status": "ok",
+      "summary": "no semantic breakage detected"
+    },
+    {
+      "findings": [
+        {
+          "confidence": "high",
+          "detail": "peer-symbol touches 1 of the same file: core.py Both change the same declaration(s): alpha 1 hunk pair overlapping. Whoever merges second will have to reconcile these by hand.",
+          "evidence": {
+            "adjacency_lines": 10,
+            "base": "main",
+            "branch": "peer-symbol",
+            "direct_hunk_count": 1,
+            "file_count": 1,
+            "files": [
+              "core.py"
+            ],
+            "granularity": "symbol",
+            "head": "peer-symbol",
+            "hunk_count": 1,
+            "hunks": [
+              {
+                "candidate": [
+                  1,
+                  2
+                ],
+                "direct": true,
+                "file": "core.py",
+                "other": [
+                  1,
+                  2
+                ]
+              }
+            ],
+            "symbol_count": 1,
+            "symbols": [
+              "alpha"
+            ]
+          },
+          "file": "core.py",
+          "line": null,
+          "severity": "high",
+          "signal": "overlap",
+          "title": "peer-symbol collides at symbol level (1 shared file)"
+        },
+        {
+          "confidence": "medium",
+          "detail": "peer-hunk touches 1 of the same file: core.py 1 hunk pair within 10 lines of each other. Whoever merges second will have to reconcile these by hand.",
+          "evidence": {
+            "adjacency_lines": 10,
+            "base": "main",
+            "branch": "peer-hunk",
+            "direct_hunk_count": 0,
+            "file_count": 1,
+            "files": [
+              "core.py"
+            ],
+            "granularity": "hunk",
+            "head": "peer-hunk",
+            "hunk_count": 1,
+            "hunks": [
+              {
+                "candidate": [
+                  1,
+                  2
+                ],
+                "direct": false,
+                "file": "core.py",
+                "other": [
+                  6,
+                  7
+                ]
+              }
+            ],
+            "symbol_count": 0,
+            "symbols": []
+          },
+          "file": "core.py",
+          "line": null,
+          "severity": "medium",
+          "signal": "overlap",
+          "title": "peer-hunk collides at hunk level (1 shared file)"
+        }
+      ],
+      "metadata": {
+        "candidate_symbols": 1,
+        "collisions": 2,
+        "compared": 3,
+        "errors": [],
+        "others": 3
+      },
+      "name": "overlap",
+      "status": "findings",
+      "summary": "2 colliding change sets of 3 compared; sharpest collision at symbol level"
+    },
+    {
+      "findings": [
+        {
+          "confidence": "high",
+          "detail": "diff size: 2% of the maximum. 1 files and 2 churned lines.",
+          "evidence": {
+            "churned_lines": 2,
+            "factor": "diff_size",
+            "files": 1,
+            "saturation_files": 50,
+            "saturation_lines": 2000,
+            "value": 0.02,
+            "weight": 0.15
+          },
+          "file": null,
+          "line": null,
+          "severity": "low",
+          "signal": "risk",
+          "title": "risk factor diff_size: 2% (weight 0.15)"
+        },
+        {
+          "confidence": "low",
+          "detail": "changed source files without a touched test: 100% of the maximum. 1 changed source file(s) have no test file at all and 0 have one that this change does not touch. This is a proxy, not real coverage.",
+          "evidence": {
+            "factor": "test_coverage",
+            "source_files": 1,
+            "tree_scanned": true,
+            "untouched_tests": 0,
+            "value": 1.0,
+            "verdicts": {
+              "core.py": "no test found"
+            },
+            "weight": 0.15,
+            "without_tests": 1
+          },
+          "file": null,
+          "line": null,
+          "severity": "high",
+          "signal": "risk",
+          "title": "risk factor test_coverage: 100% (weight 0.15)"
+        }
+      ],
+      "metadata": {
+        "churned_lines": 2,
+        "factors": {
+          "diff_size": 0.02,
+          "test_coverage": 1.0
+        },
+        "files": 1,
+        "level": "medium",
+        "risk_score": {
+          "factors": {
+            "diff_size": 0.02,
+            "test_coverage": 1.0
+          },
+          "level": "medium",
+          "score": 51.0,
+          "weights": {
+            "diff_size": 0.15,
+            "test_coverage": 0.15
+          }
+        },
+        "score": 51.0,
+        "unavailable_factors": [
+          "churn",
+          "co_change",
+          "hot_paths"
+        ]
+      },
+      "name": "risk",
+      "status": "findings",
+      "summary": "risk 51/100 (medium); churn, co_change, hot_paths unavailable"
+    }
+  ],
+  "version": "1"
+}

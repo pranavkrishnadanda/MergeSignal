@@ -487,7 +487,7 @@ class BranchDiff(MergeSignalModel):
     head: str = Field(..., description="Head ref/sha of this change set.")
     base: str = Field(..., description="Base ref/sha it is measured against (usually the same base as the candidate).")
     diff: Diff = Field(..., description="Structured diff of this change set.")
-    symbols: list[Symbol] = Field(default_factory=list, description="Symbols defined by this change set's touched files, when indexed.")
+    symbols: list[Symbol] = Field(default_factory=list, description="Symbols this change set *changed* (added, removed, renamed or re-signatured) since its merge base, when indexed. Not every symbol in the touched files: symbol-level overlap means 'we both edited this declaration', and the whole-file reading would make any two edits to one module look like a collision on all of it.")
     pr_number: int | None = Field(default=None, ge=1, description="GitHub PR number when sourced from --prs.")
     url: str | None = Field(default=None, description="Web URL of the PR/branch for linking in findings.")
     author: str | None = Field(default=None, description="Author login/name, for human-readable collision findings.")

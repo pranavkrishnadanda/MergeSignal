@@ -1,0 +1,178 @@
+{
+  "base": "main",
+  "generated_at": "<generated-at>",
+  "head": "feature",
+  "merge_base": "<sha>",
+  "repo_path": "<repo>",
+  "risk_score": {
+    "factors": {
+      "diff_size": 0.02,
+      "test_coverage": 1.0
+    },
+    "level": "medium",
+    "score": 51.0,
+    "weights": {
+      "diff_size": 0.15,
+      "test_coverage": 0.15
+    }
+  },
+  "signals": [
+    {
+      "findings": [],
+      "metadata": {
+        "clean": true,
+        "conflicted_files": 0,
+        "regions": 0,
+        "strategy": "merge-tree",
+        "up_to_date": false
+      },
+      "name": "conflicts",
+      "status": "ok",
+      "summary": "merges cleanly; no textual conflicts"
+    },
+    {
+      "findings": [
+        {
+          "confidence": "medium",
+          "detail": "head renames function 'load_settings' to 'read_settings' (settings.py:1), while base references the old name at startup.py:1, startup.py:5. Rename detection is a heuristic, so confirm before acting.",
+          "evidence": {
+            "change": "renamed",
+            "change_confidence": "medium",
+            "changed_side": "head",
+            "definition": {
+              "end_line": 3,
+              "file": "settings.py",
+              "line": 1,
+              "parent": null,
+              "signature": "(path)"
+            },
+            "new_name": "read_settings",
+            "old_file": "settings.py",
+            "old_name": "load_settings",
+            "pattern": "renamed_old_name_referenced",
+            "reference_count": 2,
+            "reference_side": "base",
+            "references": [
+              {
+                "context": "from settings import load_settings",
+                "file": "startup.py",
+                "line": 1
+              },
+              {
+                "context": "return load_settings('app.ini')",
+                "file": "startup.py",
+                "line": 5
+              }
+            ],
+            "references_truncated": false,
+            "symbol": "read_settings",
+            "symbol_kind": "function"
+          },
+          "file": "startup.py",
+          "line": 1,
+          "severity": "high",
+          "signal": "semantic",
+          "title": "'load_settings' renamed to 'read_settings' on head but referenced on base"
+        }
+      ],
+      "metadata": {
+        "changes_considered": 3,
+        "languages": [
+          "python"
+        ],
+        "patterns": {
+          "removed_symbol_still_referenced": 0,
+          "renamed_old_name_referenced": 1,
+          "signature_changed_new_callers": 0
+        },
+        "references_considered": 3
+      },
+      "name": "semantic",
+      "status": "findings",
+      "summary": "1 potential semantic issue: 1 renamed-old-name-referenced"
+    },
+    {
+      "findings": [],
+      "metadata": {
+        "others": 0
+      },
+      "name": "overlap",
+      "status": "skipped",
+      "summary": "no other branches or PRs supplied (use --branches or --prs)"
+    },
+    {
+      "findings": [
+        {
+          "confidence": "high",
+          "detail": "diff size: 2% of the maximum. 1 files and 2 churned lines.",
+          "evidence": {
+            "churned_lines": 2,
+            "factor": "diff_size",
+            "files": 1,
+            "saturation_files": 50,
+            "saturation_lines": 2000,
+            "value": 0.02,
+            "weight": 0.15
+          },
+          "file": null,
+          "line": null,
+          "severity": "low",
+          "signal": "risk",
+          "title": "risk factor diff_size: 2% (weight 0.15)"
+        },
+        {
+          "confidence": "low",
+          "detail": "changed source files without a touched test: 100% of the maximum. 1 changed source file(s) have no test file at all and 0 have one that this change does not touch. This is a proxy, not real coverage.",
+          "evidence": {
+            "factor": "test_coverage",
+            "source_files": 1,
+            "tree_scanned": true,
+            "untouched_tests": 0,
+            "value": 1.0,
+            "verdicts": {
+              "settings.py": "no test found"
+            },
+            "weight": 0.15,
+            "without_tests": 1
+          },
+          "file": null,
+          "line": null,
+          "severity": "high",
+          "signal": "risk",
+          "title": "risk factor test_coverage: 100% (weight 0.15)"
+        }
+      ],
+      "metadata": {
+        "churned_lines": 2,
+        "factors": {
+          "diff_size": 0.02,
+          "test_coverage": 1.0
+        },
+        "files": 1,
+        "level": "medium",
+        "risk_score": {
+          "factors": {
+            "diff_size": 0.02,
+            "test_coverage": 1.0
+          },
+          "level": "medium",
+          "score": 51.0,
+          "weights": {
+            "diff_size": 0.15,
+            "test_coverage": 0.15
+          }
+        },
+        "score": 51.0,
+        "unavailable_factors": [
+          "churn",
+          "co_change",
+          "hot_paths"
+        ]
+      },
+      "name": "risk",
+      "status": "findings",
+      "summary": "risk 51/100 (medium); churn, co_change, hot_paths unavailable"
+    }
+  ],
+  "version": "1"
+}

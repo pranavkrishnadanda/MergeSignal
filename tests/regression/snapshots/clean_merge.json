@@ -1,0 +1,114 @@
+{
+  "base": "main",
+  "generated_at": "<generated-at>",
+  "head": "feature",
+  "merge_base": "<sha>",
+  "repo_path": "<repo>",
+  "risk_score": {
+    "factors": {
+      "diff_size": 0.04,
+      "test_coverage": 0.0
+    },
+    "level": "low",
+    "score": 2.0,
+    "weights": {
+      "diff_size": 0.15,
+      "test_coverage": 0.15
+    }
+  },
+  "signals": [
+    {
+      "findings": [],
+      "metadata": {
+        "clean": true,
+        "conflicted_files": 0,
+        "regions": 0,
+        "strategy": "merge-tree",
+        "up_to_date": false
+      },
+      "name": "conflicts",
+      "status": "ok",
+      "summary": "merges cleanly; no textual conflicts"
+    },
+    {
+      "findings": [],
+      "metadata": {
+        "changes_considered": 4,
+        "languages": [
+          "python"
+        ],
+        "patterns": {
+          "removed_symbol_still_referenced": 0,
+          "renamed_old_name_referenced": 0,
+          "signature_changed_new_callers": 0
+        },
+        "references_considered": 2
+      },
+      "name": "semantic",
+      "status": "ok",
+      "summary": "no semantic breakage detected"
+    },
+    {
+      "findings": [],
+      "metadata": {
+        "others": 0
+      },
+      "name": "overlap",
+      "status": "skipped",
+      "summary": "no other branches or PRs supplied (use --branches or --prs)"
+    },
+    {
+      "findings": [
+        {
+          "confidence": "high",
+          "detail": "diff size: 4% of the maximum. 2 files and 7 churned lines.",
+          "evidence": {
+            "churned_lines": 7,
+            "factor": "diff_size",
+            "files": 2,
+            "saturation_files": 50,
+            "saturation_lines": 2000,
+            "value": 0.04,
+            "weight": 0.15
+          },
+          "file": null,
+          "line": null,
+          "severity": "low",
+          "signal": "risk",
+          "title": "risk factor diff_size: 4% (weight 0.15)"
+        }
+      ],
+      "metadata": {
+        "churned_lines": 7,
+        "factors": {
+          "diff_size": 0.04,
+          "test_coverage": 0.0
+        },
+        "files": 2,
+        "level": "low",
+        "risk_score": {
+          "factors": {
+            "diff_size": 0.04,
+            "test_coverage": 0.0
+          },
+          "level": "low",
+          "score": 2.0,
+          "weights": {
+            "diff_size": 0.15,
+            "test_coverage": 0.15
+          }
+        },
+        "score": 2.0,
+        "unavailable_factors": [
+          "churn",
+          "co_change",
+          "hot_paths"
+        ]
+      },
+      "name": "risk",
+      "status": "findings",
+      "summary": "risk 2/100 (low); churn, co_change, hot_paths unavailable"
+    }
+  ],
+  "version": "1"
+}

@@ -1,0 +1,51 @@
+{
+  "base": "main",
+  "generated_at": "<generated-at>",
+  "head": "main",
+  "merge_base": "<sha>",
+  "repo_path": "<repo>",
+  "risk_score": null,
+  "signals": [
+    {
+      "findings": [],
+      "metadata": {
+        "clean": true,
+        "conflicted_files": 0,
+        "regions": 0,
+        "strategy": "merge-tree",
+        "up_to_date": true
+      },
+      "name": "conflicts",
+      "status": "ok",
+      "summary": "main is already merged into main; nothing to do"
+    },
+    {
+      "findings": [],
+      "metadata": {
+        "changed_files": 0
+      },
+      "name": "semantic",
+      "status": "skipped",
+      "summary": "empty diff; nothing to analyse"
+    },
+    {
+      "findings": [],
+      "metadata": {
+        "others": 0
+      },
+      "name": "overlap",
+      "status": "skipped",
+      "summary": "empty diff; nothing can collide"
+    },
+    {
+      "findings": [],
+      "metadata": {
+        "files": 0
+      },
+      "name": "risk",
+      "status": "skipped",
+      "summary": "empty diff; nothing to score"
+    }
+  ],
+  "version": "1"
+}

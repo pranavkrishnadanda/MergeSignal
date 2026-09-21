@@ -56,6 +56,28 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "regression: golden-snapshot corpus tests")
 
 
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """Add ``--snapshot-update`` for regenerating the golden regression corpus.
+
+    Kept deliberately explicit rather than, say, auto-writing a missing
+    snapshot: a golden file that regenerates itself on demand stops being a
+    regression test. CI never passes this flag, so a behaviour change in CI is
+    a failure, not a silent rewrite.
+    """
+    parser.addoption(
+        "--snapshot-update",
+        action="store_true",
+        default=False,
+        help="Rewrite tests/regression/snapshots/*.json from the current behaviour, then skip.",
+    )
+
+
+@pytest.fixture
+def snapshot_update(request: pytest.FixtureRequest) -> bool:
+    """Whether ``--snapshot-update`` was passed on the command line."""
+    return bool(request.config.getoption("--snapshot-update"))
+
+
 # ------------------------------------------------------------- repositories
 
 

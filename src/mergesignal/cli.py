@@ -54,11 +54,13 @@ from mergesignal.models import (
     SIGNAL_NAMES,
     AnalysisContext,
     BranchDiff,
+    Diff,
     OutputFormat,
     Report,
     RiskScore,
     Severity,
     Signal,
+    Symbol,
 )
 
 #: Exit status: no findings at or above the threshold.
@@ -115,7 +117,7 @@ def build_context(repo: Repo, base: str, head: str, config: Config, *, others: l
 
     Resolves the merge base, computes the two structured diffs (merge-base to
     base and merge-base to head) and builds the symbol indexes for the touched
-    files.
+    files of *each* side — see :func:`_populate_symbols`.
 
     Each of those steps is *optional* in the sense that a failure leaves the
     corresponding field empty rather than aborting: an engine whose inputs are
@@ -150,29 +152,58 @@ def build_context(repo: Repo, base: str, head: str, config: Config, *, others: l
         ctx_kwargs["head_diff"] = None
 
     ctx = AnalysisContext(**ctx_kwargs)
+    _populate_symbols(ctx, repo, config, merge_base=diff_base)
 
-    head_diff = ctx.head_diff
-    if head_diff is not None:
+    return ctx
+
+
+def _populate_symbols(ctx: AnalysisContext, repo: Repo, config: Config, *, merge_base: str) -> None:
+    """Fill the symbol/reference/change fields of ``ctx``, one side at a time.
+
+    The two sides are indexed **independently**, each against the merge base and
+    each over its *own* diff's touched paths:
+
+    * ``base_symbols`` / ``base_references`` describe the tree at ``ctx.base``
+      and ``base_changes`` is ``merge-base -> base``;
+    * ``head_symbols`` / ``head_references`` describe the tree at ``ctx.head``
+      and ``head_changes`` is ``merge-base -> head``.
+
+    Indexing both sides over a single (head) path set was the original wiring
+    and it quietly disabled half of :mod:`mergesignal.signals.semantic`: the
+    files the *base* side touched — the ones carrying the new callers of a
+    symbol head renamed or re-signatured — were never read, so ``base_changes``
+    stayed empty and ``base_references`` actually held merge-base references.
+    S2 needs each side's post-merge-base state to compare them symmetrically.
+
+    Any failure leaves the corresponding fields empty; the engines then report
+    ``skipped`` rather than the whole run dying (NFR-3).
+    """
+    try:
+        from mergesignal.analysis.index import build_indexes, diff_symbols
+    except ImportError:  # pragma: no cover - analysis layer always ships
+        return
+
+    sides = (
+        ("base", ctx.base, ctx.base_diff),
+        ("head", ctx.head, ctx.head_diff),
+    )
+    for label, ref, diff in sides:
+        if diff is None:
+            continue
         try:
-            from mergesignal.analysis.index import build_indexes, diff_symbols
-
-            base_index, head_index = build_indexes(
+            before, after = build_indexes(
                 repo,
-                diff_base,
-                head,
-                head_diff,
+                merge_base,
+                ref,
+                diff,
                 max_files=config.analysis.max_files,
                 max_file_bytes=config.analysis.max_file_bytes,
             )
-            ctx.base_symbols = list(base_index.all_symbols)
-            ctx.head_symbols = list(head_index.all_symbols)
-            ctx.base_references = list(base_index.all_references)
-            ctx.head_references = list(head_index.all_references)
-            ctx.head_changes = diff_symbols(base_index, head_index)
-        except (NotImplementedError, GitError, ImportError):
-            pass
-
-    return ctx
+            setattr(ctx, f"{label}_symbols", list(after.all_symbols))
+            setattr(ctx, f"{label}_references", list(after.all_references))
+            setattr(ctx, f"{label}_changes", diff_symbols(before, after))
+        except (NotImplementedError, GitError):
+            continue
 
 
 def run_signal(name: str, ctx: AnalysisContext) -> Signal:
@@ -517,12 +548,14 @@ def collect_others(repo: Repo, config: Config, *, branches: list[str] | None, pr
             from mergesignal.analysis.diff import diff_refs
 
             for name in branch_names:
+                diff = diff_refs(repo, base, name, merge_base=True, max_files=config.analysis.max_files)
                 others.append(
                     BranchDiff(
                         name=name,
                         head=name,
                         base=base,
-                        diff=diff_refs(repo, base, name, merge_base=True, max_files=config.analysis.max_files),
+                        diff=diff,
+                        symbols=index_branch_symbols(repo, name, diff, config, base=base),
                     )
                 )
         except (NotImplementedError, GitError, ImportError) as exc:
@@ -536,6 +569,43 @@ def collect_others(repo: Repo, config: Config, *, branches: list[str] | None, pr
         except Exception as exc:  # noqa: BLE001 - network/auth failures must not kill the run
             _echo_err(f"warning: cross-PR overlap unavailable ({type(exc).__name__}: {exc})")
     return others
+
+
+def index_branch_symbols(repo: Repo, ref: str, diff: Diff, config: Config, *, base: str) -> list[Symbol]:
+    """Symbols that ``ref`` actually **changed** since its merge base with ``base``.
+
+    This is the other half of :func:`mergesignal.signals.overlap.symbol_overlap`,
+    whose contract is "qualified names changed by *both* sides". The candidate's
+    half comes from ``ctx.head_changes``; without this the peer's half
+    (:attr:`~mergesignal.models.BranchDiff.symbols`) stayed empty and S3 could
+    never reach its sharpest granularity — two branches rewriting the same
+    function were reported as a mere hunk collision.
+
+    Note the emphasis on *changed*. Returning every symbol declared in the
+    touched files would be the easier query and a much worse answer: any two
+    branches editing the same module would then appear to collide on every
+    declaration in it, which flattens the symbol > hunk > file ranking into
+    "symbol, always" and destroys the very signal it is meant to sharpen.
+
+    Failures degrade to an empty list: overlap falls back to hunk and file
+    granularity, which is coarser output but still true output (NFR-3).
+    """
+    try:
+        from mergesignal.analysis.index import build_indexes, diff_symbols
+    except ImportError:  # pragma: no cover - analysis layer always ships
+        return []
+    try:
+        before, after = build_indexes(
+            repo,
+            repo.merge_base(base, ref) or base,
+            ref,
+            diff,
+            max_files=config.analysis.max_files,
+            max_file_bytes=config.analysis.max_file_bytes,
+        )
+    except (NotImplementedError, GitError):
+        return []
+    return [change.symbol for change in diff_symbols(before, after)]
 
 
 def _collect_pr_diffs(repo: Repo, config: Config, pr_values: list[str], *, base: str) -> list[BranchDiff]:
@@ -579,12 +649,14 @@ def _collect_pr_diffs(repo: Repo, config: Config, pr_values: list[str], *, base:
             if ref is None:
                 _echo_err(f"warning: skipping PR #{pull.number}: {pull.head_ref} is not in the local repository (git fetch it first)")
                 continue
+            diff = diff_refs(repo, base, ref, merge_base=True, max_files=config.analysis.max_files)
             others.append(
                 BranchDiff(
                     name=pull.label,
                     head=ref,
                     base=base,
-                    diff=diff_refs(repo, base, ref, merge_base=True, max_files=config.analysis.max_files),
+                    diff=diff,
+                    symbols=index_branch_symbols(repo, ref, diff, config, base=base),
                     pr_number=pull.number,
                     url=pull.url or None,
                     author=pull.author or None,

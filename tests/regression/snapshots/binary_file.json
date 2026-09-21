@@ -1,0 +1,127 @@
+{
+  "base": "main",
+  "generated_at": "<generated-at>",
+  "head": "feature",
+  "merge_base": "<sha>",
+  "repo_path": "<repo>",
+  "risk_score": {
+    "factors": {
+      "diff_size": 0.02
+    },
+    "level": "low",
+    "score": 2.0,
+    "weights": {
+      "diff_size": 0.15
+    }
+  },
+  "signals": [
+    {
+      "findings": [
+        {
+          "confidence": "high",
+          "detail": "logo.png changed on both sides and cannot be merged line by line. Pick one side's version of the file deliberately when merging feature into main.",
+          "evidence": {
+            "binary": true,
+            "file": "logo.png",
+            "ours_range": [
+              0,
+              0
+            ],
+            "ours_ref": "main",
+            "theirs_range": [
+              0,
+              0
+            ],
+            "theirs_ref": "feature"
+          },
+          "file": "logo.png",
+          "line": null,
+          "severity": "critical",
+          "signal": "conflicts",
+          "title": "Binary conflict in logo.png"
+        }
+      ],
+      "metadata": {
+        "clean": false,
+        "conflicted_files": 1,
+        "files_without_regions": 0,
+        "regions": 1,
+        "strategy": "merge-tree",
+        "up_to_date": false
+      },
+      "name": "conflicts",
+      "status": "findings",
+      "summary": "1 conflicted region across 1 file, 1 binary conflict"
+    },
+    {
+      "findings": [],
+      "metadata": {
+        "changed_files": 2,
+        "languages": []
+      },
+      "name": "semantic",
+      "status": "skipped",
+      "summary": "no supported language among the changed files; semantic analysis unavailable"
+    },
+    {
+      "findings": [],
+      "metadata": {
+        "others": 0
+      },
+      "name": "overlap",
+      "status": "skipped",
+      "summary": "no other branches or PRs supplied (use --branches or --prs)"
+    },
+    {
+      "findings": [
+        {
+          "confidence": "high",
+          "detail": "diff size: 2% of the maximum. 1 files and 0 churned lines.",
+          "evidence": {
+            "churned_lines": 0,
+            "factor": "diff_size",
+            "files": 1,
+            "saturation_files": 50,
+            "saturation_lines": 2000,
+            "value": 0.02,
+            "weight": 0.15
+          },
+          "file": null,
+          "line": null,
+          "severity": "low",
+          "signal": "risk",
+          "title": "risk factor diff_size: 2% (weight 0.15)"
+        }
+      ],
+      "metadata": {
+        "churned_lines": 0,
+        "factors": {
+          "diff_size": 0.02
+        },
+        "files": 1,
+        "level": "low",
+        "risk_score": {
+          "factors": {
+            "diff_size": 0.02
+          },
+          "level": "low",
+          "score": 2.0,
+          "weights": {
+            "diff_size": 0.15
+          }
+        },
+        "score": 2.0,
+        "unavailable_factors": [
+          "churn",
+          "co_change",
+          "hot_paths",
+          "test_coverage"
+        ]
+      },
+      "name": "risk",
+      "status": "findings",
+      "summary": "risk 2/100 (low); churn, co_change, hot_paths, test_coverage unavailable"
+    }
+  ],
+  "version": "1"
+}
