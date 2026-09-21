@@ -16,9 +16,22 @@ S2 is the one git cannot tell you. When one branch renames `load_settings` and
 another adds a call to the old name, git merges both without complaint and the
 result raises `ImportError` on the first run. That is what MergeSignal is for.
 
-Semantic findings are **heuristics with confidence levels, not proofs.**
-Unsupported languages degrade to textual overlap and report `skipped` — never a
-crash, and never a false "looks fine".
+Semantic findings are **verified against the actual merged tree**, not just
+inferred from the two diffs. MergeSignal runs `git merge-tree --write-tree`,
+greps the resulting tree for each removed or renamed name, and re-parses every
+hit file: a finding fires only when the merged result really contains a call
+to a name nothing defines. References the merge itself rewrote away, names the
+other side still defines, and optional-parameter additions (`f(a)` →
+`f(a, b=None)`) produce no finding. Matches that cannot be proven — a bare
+name collision across distant modules, an unparseable signature — are held in
+the report's `suppressed` metadata, auditable in `--format json` but unable to
+drive the exit code.
+
+The risk score is **context, not verdict**: churn, co-change, hot-path and
+size factors decompose in `factor_evidence` metadata and never appear as
+findings unless you set `risk_threshold`. Unsupported languages degrade to
+textual overlap and report `skipped` — never a crash, and never a false
+"looks fine".
 
 ## Install
 
@@ -98,6 +111,10 @@ enabled_signals: [conflicts, semantic, overlap, risk]
 
 # Findings at or above this severity make the CLI exit 1.
 severity_threshold: high        # low | medium | high | critical
+
+# Opt-in CI gate: emit one 'risk score' finding when the score meets this value.
+# Default is no gate — risk informs the report but never blocks on its own.
+# risk_threshold: 70
 
 # How the 0-100 risk score is composed. Weights are relative, not required to sum to 1.
 risk_weights:

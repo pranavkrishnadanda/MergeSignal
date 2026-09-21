@@ -57,6 +57,18 @@ tests/
   no network and no token.
 - **Exit codes are a contract:** 0 clean, 1 findings ≥ threshold, 2 error.
   Errors outrank findings.
+- **Precision over recall — S2 verifies against the merged tree.** After
+  pattern matching, `semantic.py` resolves every removed/renamed change
+  against the `merge-tree --write-tree` result (`git grep` the merged tree,
+  re-parse hit files): references must survive the merge *and* no merged file
+  may still define the name, or the finding is suppressed into
+  `metadata["suppressed"]`. The same pass discovers callers in files neither
+  diff touched — do not reintroduce diff-only conclusions.
+- **Confidence is a gate, not decoration.** Findings below
+  `REPORT_CONFIDENCE` (bare name matches, unparseable signatures) are
+  suppressed, not reported.
+- **Risk factors are metadata, not findings.** Churn/co-change/size live in
+  `factor_evidence`; `risk_threshold` is the only way the score gates CI.
 
 ## Testing conventions
 

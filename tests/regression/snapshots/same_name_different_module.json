@@ -20,81 +20,48 @@
   },
   "signals": [
     {
-      "findings": [
-        {
-          "confidence": "high",
-          "detail": "Merging feature into main conflicts at settings.conf:4: both sides changed the same lines (1 line(s) from main, 1 from feature).",
-          "evidence": {
-            "base_excerpt": "line 3",
-            "binary": false,
-            "file": "settings.conf",
-            "ours_excerpt": "line 3 MAIN",
-            "ours_range": [
-              4,
-              5
-            ],
-            "ours_ref": "main",
-            "theirs_excerpt": "line 3 FEATURE",
-            "theirs_range": [
-              8,
-              9
-            ],
-            "theirs_ref": "feature"
-          },
-          "file": "settings.conf",
-          "line": 4,
-          "severity": "high",
-          "signal": "conflicts",
-          "title": "Merge conflict in settings.conf:4"
-        },
-        {
-          "confidence": "high",
-          "detail": "Merging feature into main conflicts at settings.conf:37: both sides changed the same lines (1 line(s) from main, 1 from feature).",
-          "evidence": {
-            "base_excerpt": "line 30",
-            "binary": false,
-            "file": "settings.conf",
-            "ours_excerpt": "line 30 MAIN",
-            "ours_range": [
-              37,
-              38
-            ],
-            "ours_ref": "main",
-            "theirs_excerpt": "line 30 FEATURE",
-            "theirs_range": [
-              41,
-              42
-            ],
-            "theirs_ref": "feature"
-          },
-          "file": "settings.conf",
-          "line": 37,
-          "severity": "high",
-          "signal": "conflicts",
-          "title": "Merge conflict in settings.conf:37"
-        }
-      ],
+      "findings": [],
       "metadata": {
-        "clean": false,
-        "conflicted_files": 1,
-        "files_without_regions": 0,
-        "regions": 2,
+        "clean": true,
+        "conflicted_files": 0,
+        "regions": 0,
         "strategy": "merge-tree",
         "up_to_date": false
       },
       "name": "conflicts",
-      "status": "findings",
-      "summary": "2 conflicted regions across 1 file"
+      "status": "ok",
+      "summary": "merges cleanly; no textual conflicts"
     },
     {
       "findings": [],
       "metadata": {
-        "changed_files": 2,
-        "languages": []
+        "changes_considered": 3,
+        "languages": [
+          "python"
+        ],
+        "merge_verification": "ran",
+        "patterns": {
+          "removed_symbol_still_referenced": 0,
+          "renamed_old_name_referenced": 0,
+          "signature_changed_new_callers": 0
+        },
+        "references_considered": 4,
+        "suppressed": [
+          {
+            "confidence": "low",
+            "file": "b/run.py",
+            "line": 1,
+            "pattern": "removed_symbol_still_referenced",
+            "reason": "name still defined in the merged tree",
+            "severity": "high",
+            "title": "function 'helper' removed on head is still referenced on base"
+          }
+        ],
+        "suppressed_count": 1
       },
       "name": "semantic",
-      "status": "skipped",
-      "summary": "no supported language among the changed files; semantic analysis unavailable"
+      "status": "ok",
+      "summary": "no semantic breakage detected; 1 low-confidence match suppressed"
     },
     {
       "findings": [],
@@ -108,14 +75,14 @@
     {
       "findings": [],
       "metadata": {
-        "churned_lines": 4,
+        "churned_lines": 2,
         "factor_evidence": {
           "churn": {
             "commits_scanned": 1,
             "detail": "recent churn on the touched paths: 10% of the maximum. 1.0 commits per touched file in the last 90 days.",
             "mean_commits_per_file": 1.0,
             "per_path": {
-              "settings.conf": 1
+              "a/util.py": 1
             },
             "saturation_commits": 10,
             "truncated": false,
@@ -134,8 +101,8 @@
             "window_days": 90
           },
           "diff_size": {
-            "churned_lines": 4,
-            "detail": "diff size: 2% of the maximum. 1 files and 4 churned lines.",
+            "churned_lines": 2,
+            "detail": "diff size: 2% of the maximum. 1 files and 2 churned lines.",
             "files": 1,
             "saturation_files": 50,
             "saturation_lines": 2000,

@@ -95,7 +95,10 @@ def test_score_is_reported_and_explained(make_context: Callable[..., AnalysisCon
     assert 0.0 <= score.score <= 100.0
     assert score.level in ("low", "medium", "high", "critical")
     assert set(score.factors) == set(score.weights)
-    assert {f.evidence["factor"] for f in signal.findings} <= set(score.factors)
+    # Factors are explainability metadata, not findings — they are risk
+    # indicators, not defects, and must not trip the severity threshold.
+    assert signal.findings == []
+    assert set(signal.metadata["factor_evidence"]) == set(score.factors)
 
 
 def test_unavailable_factors_are_omitted_not_zeroed(
@@ -110,15 +113,17 @@ def test_unavailable_factors_are_omitted_not_zeroed(
     assert "churn unavailable" in signal.summary or "churn," in signal.summary
 
 
-def test_only_contributing_factors_get_findings(
+def test_only_contributing_factors_get_evidence(
     make_context: Callable[..., AnalysisContext],
 ) -> None:
-    """A factor scoring 0 is not an explanation worth a row."""
+    """Every measured factor carries its value, weight and explanation."""
     ctx = make_context(head_diff=diff(changed("tests/test_a.py")))
 
     signal = risk.analyze(ctx)
 
-    assert all(f.evidence["value"] > 0 for f in signal.findings)
+    evidence = signal.metadata["factor_evidence"]
+    assert set(evidence) == set(signal.metadata["factors"])
+    assert all(entry["detail"] for entry in evidence.values())
 
 
 def test_hot_path_match_raises_the_score(make_context: Callable[..., AnalysisContext]) -> None:
@@ -129,9 +134,24 @@ def test_hot_path_match_raises_the_score(make_context: Callable[..., AnalysisCon
     assert warm.metadata["factors"]["hot_paths"] == 1.0
     assert "hot_paths" not in cold.metadata["factors"]
     assert warm.metadata["score"] > cold.metadata["score"]
-    (hot_finding,) = [f for f in warm.findings if f.evidence["factor"] == "hot_paths"]
-    assert hot_finding.evidence["matched"] == ["src/pkg/models.py"]
-    assert hot_finding.severity == "high"
+    assert warm.metadata["factor_evidence"]["hot_paths"]["matched"] == ["src/pkg/models.py"]
+
+
+def test_risk_threshold_emits_a_single_gate_finding(
+    make_context: Callable[..., AnalysisContext],
+) -> None:
+    """The opt-in CI gate: score >= risk_threshold produces exactly one finding."""
+    gated = Config(risk_threshold=10)
+    signal = risk.analyze(make_context(head_diff=diff(changed("src/a.py")), config=gated))
+
+    (finding,) = signal.findings
+    assert finding.evidence["threshold"] == 10
+    assert finding.evidence["score"] >= 10
+    assert finding.confidence == "high"
+
+    open_gate = Config(risk_threshold=101)
+    quiet = risk.analyze(make_context(head_diff=diff(changed("src/a.py")), config=open_gate))
+    assert quiet.findings == []
 
 
 def test_unconfigured_hot_paths_are_neutral(make_context: Callable[..., AnalysisContext]) -> None:
@@ -164,6 +184,28 @@ def test_touching_the_test_file_removes_the_penalty(
     assert with_test.metadata["factors"]["test_coverage"] == 0.0
     assert without_test.metadata["factors"]["test_coverage"] == 1.0
     assert with_test.metadata["score"] < without_test.metadata["score"]
+
+
+def test_test_file_matched_by_normalised_stem(
+    make_context: Callable[..., AnalysisContext],
+) -> None:
+    """``tests/test_oov1916.py`` covers ``src/oov_1916.py`` — separators don't matter.
+
+    Exact-path candidate matching missed real repos where test naming differs
+    by underscore/casing; stems are normalised before comparison.
+    """
+    signal = risk.analyze(
+        make_context(
+            head_diff=diff(
+                changed("src/oov_1916.py"),
+                changed("tests/test_oov1916.py"),
+            )
+        )
+    )
+
+    factor = signal.metadata["factor_evidence"]["test_coverage"]
+    assert factor["value"] == 0.0
+    assert factor["verdicts"] == {"src/oov_1916.py": "test changed"}
 
 
 def test_test_files_are_not_their_own_denominator(

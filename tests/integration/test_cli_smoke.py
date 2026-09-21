@@ -56,13 +56,13 @@ def test_help_lists_all_commands() -> None:
 def test_analyze_renders_report(diverged: Path) -> None:
     """Every engine runs for real and every signal gets a rendered row.
 
-    On the clean-merge scenario the risk engine emits a ``high`` finding, which
-    is exactly the default severity threshold, so FR-7 makes this run exit 1.
+    On the clean-merge scenario nothing defects: risk factors are context, not
+    findings, so without a configured ``risk_threshold`` the run exits clean.
     """
     result = runner.invoke(
         app, ["analyze", "--base", "main", "--head", "feature", "-C", str(diverged)]
     )
-    assert result.exit_code == EXIT_FINDINGS, result.stdout
+    assert result.exit_code == EXIT_CLEAN, result.stdout
     assert "MergeSignal report" in result.stdout
     for name in SIGNAL_NAMES:
         assert name in result.stdout
@@ -116,23 +116,23 @@ def test_analyze_json_output_is_parseable(diverged: Path) -> None:
         app,
         ["analyze", "--base", "main", "--head", "feature", "-C", str(diverged), "--format", "json"],
     )
-    assert result.exit_code == EXIT_FINDINGS, result.stdout
+    assert result.exit_code == EXIT_CLEAN, result.stdout
     payload = json.loads(result.stdout)
     assert payload["base"] == "main"
     assert payload["head"] == "feature"
     assert len(payload["merge_base"]) == 40
     assert [s["name"] for s in payload["signals"]] == list(SIGNAL_NAMES)
     # Two branches touching different files: nothing conflicts, nothing breaks,
-    # there is no second branch to overlap with, and risk always has something
-    # to say — which is what makes this run exit 1 rather than 0.
+    # there is no second branch to overlap with, and risk factors are context —
+    # carried in metadata, not findings — so the run exits clean.
     assert {s["name"]: s["status"] for s in payload["signals"]} == {
         "conflicts": "ok",
         "semantic": "ok",
         "overlap": "skipped",
-        "risk": "findings",
+        "risk": "ok",
     }
     risk = next(s for s in payload["signals"] if s["name"] == "risk")
-    assert risk["findings"], risk
+    assert risk["metadata"]["factor_evidence"], risk
     assert payload["risk_score"] is not None
     assert 0.0 <= payload["risk_score"]["score"] <= 100.0
 

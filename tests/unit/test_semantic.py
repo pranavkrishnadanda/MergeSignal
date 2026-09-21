@@ -213,9 +213,10 @@ def test_removed_cross_file_same_package_is_medium_confidence(
     assert finding.severity == "high"
 
 
-def test_removed_far_away_reference_is_low_confidence(
+def test_removed_far_away_reference_is_suppressed_below_the_confidence_floor(
     make_context: Callable[..., AnalysisContext],
 ) -> None:
+    """A bare name match in a distant directory proved nothing — it goes to suppressed."""
     ctx = make_context(
         head_diff=diff_with(("pkg/lib.py", 1, 3)),
         head_symbols=[symbol("helper")],
@@ -223,15 +224,19 @@ def test_removed_far_away_reference_is_low_confidence(
         base_references=[reference("helper", file="elsewhere/other.py")],
     )
 
-    (finding,) = semantic.analyze(ctx).findings
+    signal = semantic.analyze(ctx)
 
-    assert finding.confidence == "low"
-    assert finding.severity == "high"
+    assert signal.findings == []
+    (entry,) = signal.metadata["suppressed"]
+    assert entry["confidence"] == "low"
+    assert entry["reason"] == "below confidence floor"
+    assert "suppressed" in signal.summary
 
 
-def test_common_names_never_claim_high_confidence(
+def test_common_names_are_suppressed_below_the_confidence_floor(
     make_context: Callable[..., AnalysisContext],
 ) -> None:
+    """``run`` matching ``run`` across the merge is a guess, not a finding."""
     ctx = make_context(
         head_diff=diff_with(("lib.py", 1, 3)),
         head_symbols=[symbol("run")],
@@ -239,9 +244,11 @@ def test_common_names_never_claim_high_confidence(
         base_references=[reference("run", file="lib.py", line=40)],
     )
 
-    (finding,) = semantic.analyze(ctx).findings
+    signal = semantic.analyze(ctx)
 
-    assert finding.confidence == "low"
+    assert signal.findings == []
+    (entry,) = signal.metadata["suppressed"]
+    assert entry["confidence"] == "low"
 
 
 def test_references_inside_the_removed_body_are_ignored(
@@ -365,9 +372,10 @@ def test_rename_confidence_is_capped_at_medium(
     assert finding.confidence == "medium"
 
 
-def test_rename_with_low_confidence_detection_stays_low(
+def test_rename_with_low_confidence_detection_is_suppressed(
     make_context: Callable[..., AnalysisContext],
 ) -> None:
+    """A low-confidence rename *and* a low-confidence match is doubly speculative."""
     change = SymbolChange(
         symbol=symbol("new_name", file="lib.py"),
         kind="renamed",
@@ -381,9 +389,11 @@ def test_rename_with_low_confidence_detection_stays_low(
         base_references=[reference("old_name", file="lib.py", line=40)],
     )
 
-    (finding,) = semantic.analyze(ctx).findings
+    signal = semantic.analyze(ctx)
 
-    assert finding.confidence == "low"
+    assert signal.findings == []
+    (entry,) = signal.metadata["suppressed"]
+    assert entry["confidence"] == "low"
 
 
 def test_rename_without_references_to_the_old_name_is_quiet(
@@ -418,10 +428,63 @@ def test_signature_change_with_added_caller_is_high(
     assert finding.severity == "high"
     assert finding.confidence == "high"
     assert finding.evidence["pattern"] == semantic.PATTERN_SIGNATURE
-    assert finding.evidence["arity_changed"] is True
+    assert finding.evidence["signature_breakage"] == "breaking"
     assert finding.evidence["new_callers_only"] is True
     assert finding.evidence["old_signature"] == "(a)"
     assert finding.evidence["new_signature"] == "(a, b)"
+
+
+def test_optional_parameter_addition_is_compatible_not_a_finding(
+    make_context: Callable[..., AnalysisContext],
+) -> None:
+    """``f(a) -> f(a, b=None)`` cannot break a caller written against f(a)."""
+    ctx = make_context(
+        base_diff=diff_with(("caller.py", 1, 5)),
+        head_diff=diff_with(("lib.py", 1, 3)),
+        head_symbols=[symbol("compute")],
+        head_changes=[signature_changed("compute", old="(a)", new="(a, b=None)", file="lib.py")],
+        base_references=[reference("compute", file="caller.py", line=3, context="compute(1)")],
+    )
+
+    signal = semantic.analyze(ctx)
+
+    assert signal.findings == []
+
+
+def test_parameter_rename_is_reported_as_a_kwarg_risk(
+    make_context: Callable[..., AnalysisContext],
+) -> None:
+    """``f(a) -> f(b)`` keeps arity but keyword callers pass ``a=`` — renamed."""
+    ctx = make_context(
+        base_diff=diff_with(("caller.py", 1, 5)),
+        head_diff=diff_with(("lib.py", 1, 3)),
+        head_symbols=[symbol("compute")],
+        head_changes=[signature_changed("compute", old="(a)", new="(b)", file="lib.py")],
+        base_references=[reference("compute", file="caller.py", line=3)],
+    )
+
+    (finding,) = semantic.analyze(ctx).findings
+
+    assert finding.severity == "medium"
+    assert finding.evidence["signature_breakage"] == "renamed"
+
+
+def test_optional_parameter_made_required_is_breaking(
+    make_context: Callable[..., AnalysisContext],
+) -> None:
+    """``f(a=1) -> f(a)`` breaks every caller that relied on the default."""
+    ctx = make_context(
+        base_diff=diff_with(("caller.py", 1, 5)),
+        head_diff=diff_with(("lib.py", 1, 3)),
+        head_symbols=[symbol("compute")],
+        head_changes=[signature_changed("compute", old="(a=1)", new="(a)", file="lib.py")],
+        base_references=[reference("compute", file="caller.py", line=3)],
+    )
+
+    (finding,) = semantic.analyze(ctx).findings
+
+    assert finding.severity == "high"
+    assert finding.evidence["signature_breakage"] == "breaking"
 
 
 def test_pre_existing_callers_are_not_reported(
@@ -439,9 +502,10 @@ def test_pre_existing_callers_are_not_reported(
     assert semantic.analyze(ctx).findings == []
 
 
-def test_signature_change_without_arity_change_is_medium(
+def test_annotation_only_signature_change_is_compatible(
     make_context: Callable[..., AnalysisContext],
 ) -> None:
+    """``f(a) -> f(a: int)`` changes no call syntax — nothing to report."""
     ctx = make_context(
         base_diff=diff_with(("caller.py", 1, 5)),
         head_diff=diff_with(("lib.py", 1, 3)),
@@ -450,11 +514,10 @@ def test_signature_change_without_arity_change_is_medium(
         base_references=[reference("compute", file="caller.py", line=3)],
     )
 
-    (finding,) = semantic.analyze(ctx).findings
+    signal = semantic.analyze(ctx)
 
-    assert finding.severity == "medium"
-    assert finding.confidence == "low"
-    assert finding.evidence["arity_changed"] is False
+    assert signal.findings == []
+    assert signal.metadata["suppressed"] == []
 
 
 def test_unknown_signatures_lower_confidence_rather_than_claiming_no_change(
@@ -476,7 +539,7 @@ def test_unknown_signatures_lower_confidence_rather_than_claiming_no_change(
 
     (finding,) = semantic.analyze(ctx).findings
 
-    assert finding.evidence["arity_changed"] is None
+    assert finding.evidence["signature_breakage"] == "unknown"
     assert finding.confidence == "medium"
     assert finding.severity == "medium"
 
@@ -522,18 +585,24 @@ def test_many_references_collapse_into_one_finding(
 @pytest.mark.parametrize(
     ("old", "new", "expected"),
     [
-        ("(a)", "(a, b)", True),
-        ("(a, b)", "(a, b)", False),
-        ("(a: int = 1)", "(a: str = 'x')", False),
-        ("()", "(a)", True),
-        (None, "(a)", None),
-        ("(a)", None, None),
-        ("no parens", "(a)", None),
-        ("(a, b: Dict[str, int])", "(a, b: Dict[str, int], c)", True),
+        ("(a)", "(a, b)", "breaking"),  # new required parameter
+        ("(a, b)", "(a)", "breaking"),  # parameter removed
+        ("(a, b)", "(b, a)", "breaking"),  # positional reorder
+        ("(a=1)", "(a)", "breaking"),  # optional flipped to required
+        ("(a)", "(a, b=None)", "compatible"),  # optional addition
+        ("(a)", "(a, b=1)", "compatible"),
+        ("(a: int = 1)", "(a: str = 'x')", "compatible"),  # default/annotation move
+        ("(a)", "(b)", "renamed"),  # arity-stable name swap
+        ("(a)", "(*args)", "renamed"),  # variadic soaks positionals, kwarg name lost
+        ("()", "(a)", "breaking"),
+        (None, "(a)", "unknown"),
+        ("(a)", None, "unknown"),
+        ("no parens", "(a)", "unknown"),
+        ("(a, b: Dict[str, int])", "(a, b: Dict[str, int], c)", "breaking"),
     ],
 )
-def test_arity_changed(old: str | None, new: str | None, expected: bool | None) -> None:
-    assert semantic.arity_changed(old, new) is expected
+def test_signature_breakage(old: str | None, new: str | None, expected: str) -> None:
+    assert semantic.signature_breakage(old, new) == expected
 
 
 @pytest.mark.parametrize(

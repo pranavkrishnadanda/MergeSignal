@@ -469,6 +469,100 @@ def _hot_history(builder: RepoBuilder) -> None:
     builder.commit("rewrite api without its client")
 
 
+def _optional_param_widening(builder: RepoBuilder) -> None:
+    """Signature widened with an *optional* parameter — a compatible change.
+
+    ``feature`` gives ``render`` a new optional parameter; ``main`` adds a call
+    site at the old arity. ``f(a) -> f(a, b=None)`` cannot break a caller
+    written against ``f(a)`` — the arity-count check that ran before the
+    signature-compatibility classifier reported this as high-severity breakage,
+    which real-repo auditing showed was the most common false positive.
+    """
+    builder.file(
+        "render.py",
+        "def render(template):\n    return template.upper()\n",
+    )
+    builder.commit("add render")
+
+    builder.branch("feature")
+    builder.file(
+        "render.py",
+        "def render(template, context=None):\n    return template.upper()\n",
+    )
+    builder.commit("widen render with an optional parameter")
+
+    builder.checkout("main")
+    builder.file(
+        "pages.py",
+        "from render import render\n\n\ndef home():\n    return render('home')\n",
+    )
+    builder.commit("add a caller at the old arity")
+
+
+def _same_name_different_module(builder: RepoBuilder) -> None:
+    """A same-name collision across modules — the merged tree still resolves it.
+
+    ``feature`` deletes ``a/util.py``'s ``helper``; ``main`` adds its *own*
+    ``helper`` in ``b/util.py`` and calls it from ``b/run.py``. Bare name
+    matching flags this; the merged tree still defines ``helper`` in
+    ``b/util.py``, so the reference resolves — suppressed, never reported.
+    """
+    builder.file("a/util.py", "def helper(x):\n    return x\n")
+    builder.commit("add a/util helper")
+
+    builder.branch("feature")
+    builder.remove("a/util.py")
+    builder.commit("remove a/util helper")
+
+    builder.checkout("main")
+    builder.file("b/util.py", "def helper(x):\n    return x * 2\n")
+    builder.file("b/run.py", "from b.util import helper\n\nprint(helper(2))\n")
+    builder.commit("add b helper and its caller")
+
+
+def _merge_erased_reference(builder: RepoBuilder) -> None:
+    """The merge itself deletes the referencing file — nothing left to break.
+
+    ``feature`` deletes both ``util.py`` (which defines ``helper``) and
+    ``old_caller.py`` (which called it); ``main`` adds an unrelated file. The
+    name match between the diffs is real, but the merged tree contains neither
+    file — reporting "still referenced" would be inventing a defect.
+    """
+    builder.file("util.py", "def helper(x):\n    return x\n")
+    builder.file("old_caller.py", "from util import helper\n\nhelper(1)\n")
+    builder.commit("add helper and its caller")
+
+    builder.branch("feature")
+    builder.remove("util.py")
+    builder.remove("old_caller.py")
+    builder.commit("delete helper and the file that called it")
+
+    builder.checkout("main")
+    builder.file("readme.md", "docs\n")
+    builder.commit("unrelated docs")
+
+
+def _untouched_caller_breaks(builder: RepoBuilder) -> None:
+    """A caller in a file *neither diff touched* still breaks — the recall hole.
+
+    ``old_caller.py`` calls ``helper`` but appears in neither side's diff, so
+    the side indexes never see the reference. Only the merged-tree pass catches
+    it: the merged result has a call to a name nothing defines. This is the
+    most common real-world break and the diff-only design missed it entirely.
+    """
+    builder.file("util.py", "def helper(x):\n    return x\n")
+    builder.file("old_caller.py", "from util import helper\n\nhelper(1)\n")
+    builder.commit("add helper and its caller")
+
+    builder.branch("feature")
+    builder.remove("util.py")
+    builder.commit("delete util")
+
+    builder.checkout("main")
+    builder.file("readme.md", "docs\n")
+    builder.commit("unrelated docs")
+
+
 #: The corpus. Order is the order snapshots are listed and tests are run.
 SCENARIOS: list[Scenario] = [
     Scenario(
@@ -518,6 +612,26 @@ SCENARIOS: list[Scenario] = [
         name="hot_history",
         description="coupled files with in-window history; churn and co_change produce real factors",
         script=_hot_history,
+    ),
+    Scenario(
+        name="optional_param_widening",
+        description="optional-parameter addition with a new caller at the old arity; no finding",
+        script=_optional_param_widening,
+    ),
+    Scenario(
+        name="same_name_different_module",
+        description="removed name still defined by the other side's module; suppressed",
+        script=_same_name_different_module,
+    ),
+    Scenario(
+        name="merge_erased_reference",
+        description="merge deletes the referencing file too; no dangling reference exists",
+        script=_merge_erased_reference,
+    ),
+    Scenario(
+        name="untouched_caller_breaks",
+        description="caller in a file untouched by either diff still breaks; merged-tree pass catches it",
+        script=_untouched_caller_breaks,
     ),
 ]
 

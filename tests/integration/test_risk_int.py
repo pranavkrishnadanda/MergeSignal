@@ -62,9 +62,9 @@ def test_churn_factor_uses_real_history(recent_builder: RepoBuilder) -> None:
 
     assert "churn" not in signal.metadata["unavailable_factors"]
     assert signal.metadata["factors"]["churn"] > 0
-    (finding,) = [f for f in signal.findings if f.evidence["factor"] == "churn"]
-    assert finding.evidence["per_path"]["src/hot.py"] >= 6
-    assert finding.evidence["window_days"] == 90
+    churn = signal.metadata["factor_evidence"]["churn"]
+    assert churn["per_path"]["src/hot.py"] >= 6
+    assert churn["window_days"] == 90
 
 
 def test_co_change_flags_a_coupled_file_missing_from_the_diff(recent_builder: RepoBuilder) -> None:
@@ -79,8 +79,8 @@ def test_co_change_flags_a_coupled_file_missing_from_the_diff(recent_builder: Re
     signal = risk.analyze(context(path))
 
     assert signal.metadata["factors"]["co_change"] == 1.0
-    (finding,) = [f for f in signal.findings if f.evidence["factor"] == "co_change"]
-    assert finding.evidence["missing_partners"]["src/a.py"] == ["src/b.py"]
+    co_change = signal.metadata["factor_evidence"]["co_change"]
+    assert co_change["missing_partners"]["src/a.py"] == ["src/b.py"]
 
 
 def test_history_outside_the_window_leaves_factors_unavailable(builder: RepoBuilder) -> None:
@@ -106,9 +106,9 @@ def test_existing_but_untouched_test_file_is_a_partial_penalty(recent_builder: R
 
     factor = signal.metadata["factors"]["test_coverage"]
     assert factor == risk.UNTOUCHED_TEST_PENALTY
-    (finding,) = [f for f in signal.findings if f.evidence["factor"] == "test_coverage"]
-    assert finding.evidence["tree_scanned"] is True
-    assert finding.evidence["verdicts"]["src/app.py"] == "test exists but untouched"
+    evidence = signal.metadata["factor_evidence"]["test_coverage"]
+    assert evidence["tree_scanned"] is True
+    assert evidence["verdicts"]["src/app.py"] == "test exists but untouched"
 
 
 def test_touching_the_test_file_clears_the_penalty(recent_builder: RepoBuilder) -> None:
@@ -139,8 +139,7 @@ def test_hot_paths_from_config(recent_builder: RepoBuilder) -> None:
     signal = risk.analyze(context(path, config=config))
 
     assert signal.metadata["factors"]["hot_paths"] == 0.5
-    (finding,) = [f for f in signal.findings if f.evidence["factor"] == "hot_paths"]
-    assert finding.evidence["matched"] == ["src/pkg/models.py"]
+    assert signal.metadata["factor_evidence"]["hot_paths"]["matched"] == ["src/pkg/models.py"]
 
 
 def test_empty_diff_is_skipped(simple_repo: Path) -> None:
@@ -165,9 +164,10 @@ def test_score_is_reproducible_and_explainable(recent_builder: RepoBuilder) -> N
     score = RiskScore.model_validate(first.metadata["risk_score"])
     assert score.level == risk.level_for(score.score)
     assert set(score.factors) == set(score.weights)
-    # Every scored factor with a non-zero value is explained by exactly one finding.
-    explained = {f.evidence["factor"] for f in first.findings}
-    assert explained == {name for name, value in score.factors.items() if value > 0}
+    # Every measured factor carries its explanation in metadata — factors are
+    # context for the score, not findings.
+    assert set(first.metadata["factor_evidence"]) == set(score.factors)
+    assert first.findings == []  # no risk_threshold configured
 
 
 def test_history_window_is_configurable(recent_builder: RepoBuilder) -> None:

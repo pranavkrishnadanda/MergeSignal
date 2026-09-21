@@ -35,75 +35,25 @@
       "summary": "merges cleanly; no textual conflicts"
     },
     {
-      "findings": [
-        {
-          "confidence": "high",
-          "detail": "head changes 'render' from (template) to (template, context, strict) (render.py:1) while base adds call sites at pages.py:1, pages.py:5, pages.py:9. Changed: breaking.",
-          "evidence": {
-            "change": "signature_changed",
-            "change_confidence": "high",
-            "changed_side": "head",
-            "definition": {
-              "end_line": 2,
-              "file": "render.py",
-              "line": 1,
-              "parent": null,
-              "signature": "(template, context, strict)"
-            },
-            "merge_verified": true,
-            "new_callers_only": true,
-            "new_signature": "(template, context, strict)",
-            "old_signature": "(template)",
-            "pattern": "signature_changed_new_callers",
-            "reference_count": 3,
-            "reference_side": "base",
-            "references": [
-              {
-                "context": "from render import render",
-                "file": "pages.py",
-                "line": 1
-              },
-              {
-                "context": "return render('home')",
-                "file": "pages.py",
-                "line": 5
-              },
-              {
-                "context": "return render('about')",
-                "file": "pages.py",
-                "line": 9
-              }
-            ],
-            "references_truncated": false,
-            "signature_breakage": "breaking",
-            "symbol": "render",
-            "symbol_kind": "function"
-          },
-          "file": "pages.py",
-          "line": 1,
-          "severity": "high",
-          "signal": "semantic",
-          "title": "signature of 'render' changed on head with new callers on base"
-        }
-      ],
+      "findings": [],
       "metadata": {
-        "changes_considered": 4,
+        "changes_considered": 3,
         "languages": [
           "python"
         ],
-        "merge_verification": "ran",
+        "merge_verification": "no findings to verify",
         "patterns": {
           "removed_symbol_still_referenced": 0,
           "renamed_old_name_referenced": 0,
-          "signature_changed_new_callers": 1
+          "signature_changed_new_callers": 0
         },
-        "references_considered": 5,
+        "references_considered": 4,
         "suppressed": [],
         "suppressed_count": 0
       },
       "name": "semantic",
-      "status": "findings",
-      "summary": "1 potential semantic issue: 1 signature-changed-with-new-callers"
+      "status": "ok",
+      "summary": "no semantic breakage detected"
     },
     {
       "findings": [],

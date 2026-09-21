@@ -77,13 +77,13 @@
       "summary": "no other branches or PRs supplied (use --branches or --prs)"
     },
     {
-      "findings": [
-        {
-          "confidence": "medium",
-          "detail": "recent churn on the touched paths: 10% of the maximum. 1.0 commits per touched file in the last 90 days.",
-          "evidence": {
+      "findings": [],
+      "metadata": {
+        "churned_lines": 0,
+        "factor_evidence": {
+          "churn": {
             "commits_scanned": 1,
-            "factor": "churn",
+            "detail": "recent churn on the touched paths: 10% of the maximum. 1.0 commits per touched file in the last 90 days.",
             "mean_commits_per_file": 1.0,
             "per_path": {
               "logo.png": 1
@@ -94,33 +94,26 @@
             "weight": 0.25,
             "window_days": 90
           },
-          "file": null,
-          "line": null,
-          "severity": "low",
-          "signal": "risk",
-          "title": "risk factor churn: 10% (weight 0.25)"
-        },
-        {
-          "confidence": "high",
-          "detail": "diff size: 2% of the maximum. 1 files and 0 churned lines.",
-          "evidence": {
+          "co_change": {
+            "detail": "historically coupled files missing from this diff: 0% of the maximum. 0 of 1 touched files usually change together with files this diff does not touch.",
+            "min_support": 2,
+            "missing_partners": {},
+            "paths_considered": 1,
+            "paths_with_missing_partners": 0,
+            "value": 0.0,
+            "weight": 0.2,
+            "window_days": 90
+          },
+          "diff_size": {
             "churned_lines": 0,
-            "factor": "diff_size",
+            "detail": "diff size: 2% of the maximum. 1 files and 0 churned lines.",
             "files": 1,
             "saturation_files": 50,
             "saturation_lines": 2000,
             "value": 0.02,
             "weight": 0.15
-          },
-          "file": null,
-          "line": null,
-          "severity": "low",
-          "signal": "risk",
-          "title": "risk factor diff_size: 2% (weight 0.15)"
-        }
-      ],
-      "metadata": {
-        "churned_lines": 0,
+          }
+        },
         "factors": {
           "churn": 0.1,
           "co_change": 0.0,
@@ -149,7 +142,7 @@
         ]
       },
       "name": "risk",
-      "status": "findings",
+      "status": "ok",
       "summary": "risk 5/100 (low); hot_paths, test_coverage unavailable"
     }
   ],

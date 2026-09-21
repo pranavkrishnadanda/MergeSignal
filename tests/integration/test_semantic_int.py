@@ -92,7 +92,7 @@ def test_signature_change_with_new_callers(builder: RepoBuilder) -> None:
     (finding,) = [f for f in signal.findings if f.evidence["pattern"] == semantic.PATTERN_SIGNATURE]
     assert finding.severity == "high"
     assert finding.confidence == "high"
-    assert finding.evidence["arity_changed"] is True
+    assert finding.evidence["signature_breakage"] == "breaking"
     assert finding.evidence["old_signature"] == "(a)"
     assert finding.evidence["new_signature"] == "(a, b, c)"
     assert finding.evidence["new_callers_only"] is True

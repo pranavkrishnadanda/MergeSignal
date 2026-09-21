@@ -41,12 +41,15 @@
         "languages": [
           "python"
         ],
+        "merge_verification": "no findings to verify",
         "patterns": {
           "removed_symbol_still_referenced": 0,
           "renamed_old_name_referenced": 0,
           "signature_changed_new_callers": 0
         },
-        "references_considered": 0
+        "references_considered": 0,
+        "suppressed": [],
+        "suppressed_count": 0
       },
       "name": "semantic",
       "status": "ok",
@@ -62,13 +65,13 @@
       "summary": "no other branches or PRs supplied (use --branches or --prs)"
     },
     {
-      "findings": [
-        {
-          "confidence": "medium",
-          "detail": "recent churn on the touched paths: 30% of the maximum. 3.0 commits per touched file in the last 90 days.",
-          "evidence": {
+      "findings": [],
+      "metadata": {
+        "churned_lines": 2,
+        "factor_evidence": {
+          "churn": {
             "commits_scanned": 3,
-            "factor": "churn",
+            "detail": "recent churn on the touched paths: 30% of the maximum. 3.0 commits per touched file in the last 90 days.",
             "mean_commits_per_file": 3.0,
             "per_path": {
               "api.py": 3
@@ -79,17 +82,8 @@
             "weight": 0.25,
             "window_days": 90
           },
-          "file": null,
-          "line": null,
-          "severity": "low",
-          "signal": "risk",
-          "title": "risk factor churn: 30% (weight 0.25)"
-        },
-        {
-          "confidence": "medium",
-          "detail": "historically coupled files missing from this diff: 100% of the maximum. 1 of 1 touched files usually change together with files this diff does not touch.",
-          "evidence": {
-            "factor": "co_change",
+          "co_change": {
+            "detail": "historically coupled files missing from this diff: 100% of the maximum. 1 of 1 touched files usually change together with files this diff does not touch.",
             "min_support": 2,
             "missing_partners": {
               "api.py": [
@@ -102,35 +96,17 @@
             "weight": 0.2,
             "window_days": 90
           },
-          "file": null,
-          "line": null,
-          "severity": "high",
-          "signal": "risk",
-          "title": "risk factor co_change: 100% (weight 0.2)"
-        },
-        {
-          "confidence": "high",
-          "detail": "diff size: 2% of the maximum. 1 files and 2 churned lines.",
-          "evidence": {
+          "diff_size": {
             "churned_lines": 2,
-            "factor": "diff_size",
+            "detail": "diff size: 2% of the maximum. 1 files and 2 churned lines.",
             "files": 1,
             "saturation_files": 50,
             "saturation_lines": 2000,
             "value": 0.02,
             "weight": 0.15
           },
-          "file": null,
-          "line": null,
-          "severity": "low",
-          "signal": "risk",
-          "title": "risk factor diff_size: 2% (weight 0.15)"
-        },
-        {
-          "confidence": "low",
-          "detail": "changed source files without a touched test: 100% of the maximum. 1 changed source file(s) have no test file at all and 0 have one that this change does not touch. This is a proxy, not real coverage.",
-          "evidence": {
-            "factor": "test_coverage",
+          "test_coverage": {
+            "detail": "changed source files without a touched test: 100% of the maximum. 1 changed source file(s) have no test file at all and 0 have one that this change does not touch. This is a proxy, not real coverage.",
             "source_files": 1,
             "tree_scanned": true,
             "untouched_tests": 0,
@@ -140,16 +116,8 @@
             },
             "weight": 0.15,
             "without_tests": 1
-          },
-          "file": null,
-          "line": null,
-          "severity": "high",
-          "signal": "risk",
-          "title": "risk factor test_coverage: 100% (weight 0.15)"
-        }
-      ],
-      "metadata": {
-        "churned_lines": 2,
+          }
+        },
         "factors": {
           "churn": 0.3,
           "co_change": 1.0,
@@ -180,7 +148,7 @@
         ]
       },
       "name": "risk",
-      "status": "findings",
+      "status": "ok",
       "summary": "risk 57/100 (medium); hot_paths unavailable"
     }
   ],

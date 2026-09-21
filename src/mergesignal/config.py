@@ -202,6 +202,13 @@ class Config(BaseModel):
     severity_threshold: Severity = Field(
         default="high", description="Findings at or above this severity make the CLI exit 1 (FR-7)."
     )
+    risk_threshold: float | None = Field(
+        default=None,
+        description=(
+            "Opt-in CI gate: emit one 'risk score' finding when the score is at or above this "
+            "value (0-100). Default None — risk informs the score but never blocks on its own."
+        ),
+    )
     risk_weights: RiskWeights = Field(
         default_factory=RiskWeights, description="Weights for the risk score factors."
     )

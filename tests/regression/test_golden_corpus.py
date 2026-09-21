@@ -224,7 +224,7 @@ def test_signature_change_flags_the_new_callers(run_scenario) -> None:
         f for f in semantic.findings if f.evidence.get("pattern") == "signature_changed_new_callers"
     )
     assert finding.evidence["symbol"] == "render"
-    assert finding.evidence["arity_changed"] is True
+    assert finding.evidence["signature_breakage"] == "breaking"
     assert finding.severity == "high"
     # Every newly added usage is evidence: the import plus both call sites.
     assert {ref["file"] for ref in finding.evidence["references"]} == {"pages.py"}
@@ -320,22 +320,74 @@ def test_history_factors_are_measured(scenario: Scenario, run_scenario) -> None:
     assert "co_change" in risk.metadata["factors"], f"{scenario.name}: co_change unavailable"
 
 
+def test_optional_param_widening_produces_no_finding(run_scenario) -> None:
+    """A compatible signature change must not be reported as breakage.
+
+    This is the false-positive class that dominated the first real-repo audit:
+    ``render(template) -> render(template, context=None)`` breaks no caller.
+    """
+    report, _, _ = run_scenario(BY_NAME["optional_param_widening"])
+    semantic = report.signal("semantic")
+    assert semantic.status != "error", semantic.summary
+    assert semantic.findings == []
+
+
+def test_same_name_in_another_module_is_suppressed(run_scenario) -> None:
+    """The merged tree still defines ``helper`` — the reference resolves."""
+    report, _, _ = run_scenario(BY_NAME["same_name_different_module"])
+    semantic = report.signal("semantic")
+    assert semantic.status != "error", semantic.summary
+    assert semantic.findings == []
+    suppressed = semantic.metadata["suppressed"]
+    assert suppressed, "the match should be visible in the audit trail"
+    assert any("merged tree" in entry["reason"] for entry in suppressed)
+
+
+def test_merge_erased_reference_produces_no_finding(run_scenario) -> None:
+    """Both the definition *and* the referencing file are merged away."""
+    report, _, _ = run_scenario(BY_NAME["merge_erased_reference"])
+    semantic = report.signal("semantic")
+    assert semantic.status != "error", semantic.summary
+    assert semantic.findings == []
+
+
+def test_untouched_caller_still_breaks(run_scenario) -> None:
+    """Recall: the merged-tree pass finds callers neither diff indexed.
+
+    ``old_caller.py`` is untouched since the merge base, so no side index saw
+    the reference — but the merged tree has a call to a name nothing defines.
+    """
+    report, _, _ = run_scenario(BY_NAME["untouched_caller_breaks"])
+    assert report.signal("conflicts").status == "ok", "the merge must be textually clean"
+
+    semantic = report.signal("semantic")
+    (finding,) = semantic.findings
+    assert finding.evidence["symbol"] == "helper"
+    assert finding.evidence["merge_verified"] is True
+    assert finding.evidence["merged_tree_only"] is True
+    assert {r["file"] for r in finding.evidence["references"]} == {"old_caller.py"}
+    assert finding.severity == "critical"
+
+
 def test_hot_history_scores_real_churn_and_coupling(run_scenario) -> None:
     """The history factors must produce *nonzero* values, not merely exist.
 
     ``hot_history`` commits ``api.py`` and ``api_client.py`` together three
     times, then changes ``api.py`` alone: churn registers ~3 commits/file and
     co_change must flag ``api_client.py`` as a coupled partner missing from the
-    diff — the exact "you forgot its partner" finding S4 exists to emit.
+    diff — the exact "you forgot its partner" evidence S4 exists to carry.
+    Factors are score metadata, not findings: a churned file is context, not a
+    defect.
     """
     report, _, _ = run_scenario(BY_NAME["hot_history"])
     risk = report.signal("risk")
-    assert risk.status == "findings"
+    assert risk.status != "error", risk.summary
+    # No risk_threshold is configured, so the score must not masquerade as findings.
+    assert risk.findings == []
 
     factors = risk.metadata["factors"]
     assert factors["churn"] > 0, "in-window history must register"
     assert factors["co_change"] > 0, "the coupled partner must be flagged"
 
-    co_change = next(f for f in risk.findings if f.evidence.get("factor") == "co_change")
-    assert co_change.evidence["missing_partners"] == {"api.py": ["api_client.py"]}
-    assert co_change.severity == "high"
+    co_change = risk.metadata["factor_evidence"]["co_change"]
+    assert co_change["missing_partners"] == {"api.py": ["api_client.py"]}

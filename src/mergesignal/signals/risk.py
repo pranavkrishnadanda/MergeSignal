@@ -19,8 +19,12 @@ weights in ``.mergesignal.yaml`` mean what they look like they mean:
     Files touched and lines churned, saturating (a 400-file diff is not twice as
     risky as a 200-file one).
 
-Every factor emits its own :class:`~mergesignal.models.Finding` so the score is
+Factor decomposition lives in ``metadata["factor_evidence"]`` so the score is
 **explainable**: a number nobody can decompose is a number nobody trusts.
+Factors are *not* emitted as findings — churn on a file is context, not a
+defect, and reporting it as a finding taught real users to ignore the report.
+The signal emits a finding only when the score itself crosses the configured
+``risk_threshold`` — the opt-in CI gate.
 
 Severity of the overall score is bucketed by :data:`RISK_LEVELS`.
 """
@@ -130,23 +134,42 @@ def _analyze(ctx: AnalysisContext) -> Signal:
     factors = {name: value for name, (value, _evidence) in measured.items()}
     risk = build_score(factors, weights)
 
-    findings = [
-        finding_for_factor(
-            name,
-            value,
-            weights.get(name, 0.0),
-            _factor_detail(name, value, evidence),
-            evidence,
+    findings: list[Finding] = []
+    threshold = _risk_threshold(ctx)
+    if threshold is not None and risk.score >= threshold:
+        findings.append(
+            Finding(
+                signal=NAME,
+                severity=level_for(risk.score),
+                confidence="high",
+                title=f"merge risk {risk.score:.0f}/100 meets the configured threshold {threshold:g}",
+                detail=(
+                    f"The composite risk score is {risk.score:.0f}/100 ({risk.level}), at or above "
+                    f"the configured risk_threshold {threshold:g}. Factor contributions are in this "
+                    "signal's metadata under 'factor_evidence'."
+                ),
+                evidence={
+                    "score": risk.score,
+                    "threshold": threshold,
+                    "factors": risk.factors,
+                },
+            )
         )
-        for name, (value, evidence) in sorted(measured.items())
-        if value > 0
-    ]
 
     metadata: dict[str, Any] = {
         "risk_score": risk.model_dump(),
         "score": risk.score,
         "level": risk.level,
         "factors": risk.factors,
+        "factor_evidence": {
+            name: {
+                "value": value,
+                "weight": round(float(weights.get(name, 0.0)), 4),
+                "detail": _factor_detail(name, value, evidence),
+                **evidence,
+            }
+            for name, (value, evidence) in sorted(measured.items())
+        },
         "unavailable_factors": unavailable,
         "files": len(diff.files),
         "churned_lines": diff.total_churn,
@@ -155,6 +178,12 @@ def _analyze(ctx: AnalysisContext) -> Signal:
     if unavailable:
         summary += f"; {', '.join(unavailable)} unavailable"
     return Signal.from_findings(NAME, findings, summary, **metadata)
+
+
+def _risk_threshold(ctx: AnalysisContext) -> float | None:
+    """The configured score gate, or ``None`` — risk never blocks by default."""
+    value = getattr(getattr(ctx, "config", None), "risk_threshold", None)
+    return float(value) if isinstance(value, (int, float)) else None
 
 
 # -------------------------------------------------------------------- factors
@@ -306,15 +335,25 @@ def _test_coverage_factor(
     touched = {changed.path for changed in diff.files} | {
         changed.old_path for changed in diff.files if changed.old_path
     }
+    # Normalised-stem indexes let ``test_oov1916.py`` cover ``oov_1916.py`` —
+    # separator/casing conventions differ across repos, and an exact-path-only
+    # match was warning on files whose tests existed and *were* touched.
+    touched_tests = {_test_stem(path) for path in touched if is_test_path(path)}
+    tree_tests = (
+        {_test_stem(path) for path in tree if is_test_path(path)} if tree is not None else set()
+    )
 
     penalties: dict[str, float] = {}
     verdicts: dict[str, str] = {}
     for changed in sources:
         candidates = test_path_candidates(changed.path)
-        if any(candidate in touched for candidate in candidates):
+        stem = _normalise_stem(changed.path)
+        if any(candidate in touched for candidate in candidates) or stem in touched_tests:
             penalties[changed.path] = 0.0
             verdicts[changed.path] = "test changed"
-        elif tree is not None and any(candidate in tree for candidate in candidates):
+        elif tree is not None and (
+            any(candidate in tree for candidate in candidates) or stem in tree_tests
+        ):
             penalties[changed.path] = UNTOUCHED_TEST_PENALTY
             verdicts[changed.path] = "test exists but untouched"
         else:
@@ -482,6 +521,28 @@ def _unique_candidates(candidates: list[str], path: str) -> list[str]:
             seen.add(candidate)
             ordered.append(candidate)
     return ordered
+
+
+def _normalise_stem(path: str) -> str:
+    """Lowercase alphanumeric basename stem — ``Oov_1916.py`` -> ``oov1916``."""
+    stem = posixpath.splitext(posixpath.basename(path))[0].lower()
+    return "".join(ch for ch in stem if ch.isalnum())
+
+
+def _test_stem(path: str) -> str:
+    """Normalised stem of a *test* path with the test affixes stripped.
+
+    ``test_oov1916.py``, ``oov1916_test.go``, ``oov1916.spec.ts`` and
+    ``Oov1916Test.java`` all reduce to ``oov1916``, matching the source stem.
+    """
+    stem = _normalise_stem(path)
+    if stem.startswith("test") and len(stem) > len("test"):
+        stem = stem[len("test") :]
+    for suffix in ("tests", "test", "spec"):
+        if stem.endswith(suffix) and len(stem) > len(suffix):
+            stem = stem[: -len(suffix)]
+            break
+    return stem
 
 
 def is_test_path(path: str) -> bool:

@@ -6,18 +6,16 @@
   "repo_path": "<repo>",
   "risk_score": {
     "factors": {
-      "churn": 0.0,
+      "churn": 0.1,
       "co_change": 0.0,
-      "diff_size": 0.04,
-      "test_coverage": 0.0
+      "diff_size": 0.04
     },
     "level": "low",
-    "score": 0.8,
+    "score": 5.2,
     "weights": {
       "churn": 0.25,
       "co_change": 0.2,
-      "diff_size": 0.15,
-      "test_coverage": 0.15
+      "diff_size": 0.15
     }
   },
   "signals": [
@@ -37,17 +35,18 @@
     {
       "findings": [],
       "metadata": {
-        "changes_considered": 4,
+        "changes_considered": 2,
         "languages": [
+          "markdown",
           "python"
         ],
-        "merge_verification": "no findings to verify",
+        "merge_verification": "ran",
         "patterns": {
           "removed_symbol_still_referenced": 0,
           "renamed_old_name_referenced": 0,
           "signature_changed_new_callers": 0
         },
-        "references_considered": 2,
+        "references_considered": 0,
         "suppressed": [],
         "suppressed_count": 0
       },
@@ -67,19 +66,19 @@
     {
       "findings": [],
       "metadata": {
-        "churned_lines": 7,
+        "churned_lines": 5,
         "factor_evidence": {
           "churn": {
             "commits_scanned": 1,
-            "detail": "recent churn on the touched paths: 0% of the maximum. 0.0 commits per touched file in the last 90 days.",
-            "mean_commits_per_file": 0.0,
+            "detail": "recent churn on the touched paths: 10% of the maximum. 1.0 commits per touched file in the last 90 days.",
+            "mean_commits_per_file": 1.0,
             "per_path": {
-              "beta.py": 0,
-              "tests/test_beta.py": 0
+              "old_caller.py": 1,
+              "util.py": 1
             },
             "saturation_commits": 10,
             "truncated": false,
-            "value": 0.0,
+            "value": 0.1,
             "weight": 0.25,
             "window_days": 90
           },
@@ -94,59 +93,45 @@
             "window_days": 90
           },
           "diff_size": {
-            "churned_lines": 7,
-            "detail": "diff size: 4% of the maximum. 2 files and 7 churned lines.",
+            "churned_lines": 5,
+            "detail": "diff size: 4% of the maximum. 2 files and 5 churned lines.",
             "files": 2,
             "saturation_files": 50,
             "saturation_lines": 2000,
             "value": 0.04,
             "weight": 0.15
-          },
-          "test_coverage": {
-            "detail": "changed source files without a touched test: 0% of the maximum. 0 changed source file(s) have no test file at all and 0 have one that this change does not touch. This is a proxy, not real coverage.",
-            "source_files": 1,
-            "tree_scanned": true,
-            "untouched_tests": 0,
-            "value": 0.0,
-            "verdicts": {
-              "beta.py": "test changed"
-            },
-            "weight": 0.15,
-            "without_tests": 0
           }
         },
         "factors": {
-          "churn": 0.0,
+          "churn": 0.1,
           "co_change": 0.0,
-          "diff_size": 0.04,
-          "test_coverage": 0.0
+          "diff_size": 0.04
         },
         "files": 2,
         "level": "low",
         "risk_score": {
           "factors": {
-            "churn": 0.0,
+            "churn": 0.1,
             "co_change": 0.0,
-            "diff_size": 0.04,
-            "test_coverage": 0.0
+            "diff_size": 0.04
           },
           "level": "low",
-          "score": 0.8,
+          "score": 5.2,
           "weights": {
             "churn": 0.25,
             "co_change": 0.2,
-            "diff_size": 0.15,
-            "test_coverage": 0.15
+            "diff_size": 0.15
           }
         },
-        "score": 0.8,
+        "score": 5.2,
         "unavailable_factors": [
-          "hot_paths"
+          "hot_paths",
+          "test_coverage"
         ]
       },
       "name": "risk",
       "status": "ok",
-      "summary": "risk 1/100 (low); hot_paths unavailable"
+      "summary": "risk 5/100 (low); hot_paths, test_coverage unavailable"
     }
   ],
   "version": "1"
