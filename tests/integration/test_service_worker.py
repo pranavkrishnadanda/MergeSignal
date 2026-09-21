@@ -56,7 +56,7 @@ def pull() -> PullRequest:
 class Recorder:
     """A mock GitHub API that records every request it serves."""
 
-    def __init__(self, *, existing_comments: list[dict[str, Any]] | None = None, pull_payload: dict[str, Any] | None = None) -> None:
+    def __init__(self, *, existing_comments: list[dict[str, Any]] | None = None, pull_payload: dict[str, Any] | None = None, pulls: list[dict[str, Any]] | None = None) -> None:
         self.calls: list[tuple[str, str]] = []
         self.bodies: list[dict[str, Any]] = []
         self.existing = existing_comments or []
@@ -69,6 +69,7 @@ class Recorder:
             "base": {"ref": "main"},
             "head": {"ref": "feature", "sha": "", "repo": {"full_name": SLUG, "clone_url": "unused"}},
         }
+        self.pulls = pulls if pulls is not None else []
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         path = request.url.path
@@ -77,6 +78,8 @@ class Recorder:
             self.bodies.append(json.loads(request.read()))
         if path.endswith("/pulls/7"):
             return httpx.Response(200, json=self.pull_payload)
+        if path.endswith("/pulls"):
+            return httpx.Response(200, json=self.pulls)
         if path.endswith("/issues/7/comments") and request.method == "GET":
             return httpx.Response(200, json=self.existing)
         if request.method == "POST":
@@ -180,8 +183,87 @@ def test_analyze_pull_request_reports_and_comments(tmp_path: Path, upstream: Pat
     assert result.report.base == "main"
     assert result.report.head == "pr-7"
 
-    assert recorder.methods == ["GET", "GET", "POST"], "fetch PR, list comments, create comment"
+    assert recorder.methods == ["GET", "GET", "GET", "POST"], "fetch PR, list open PRs for overlap, list comments, create comment"
     assert COMMENT_MARKER in recorder.bodies[-1]["body"]
+
+
+def test_analyze_pull_request_reports_peer_overlap(tmp_path: Path, builder: RepoBuilder) -> None:
+    """S3 must fire in the service path — the gap this test pins.
+
+    ``worker`` used to call ``build_context`` without ``others``, so PR
+    comments could never report cross-PR overlap even though ``analyze
+    --prs`` could. A second open PR on a colliding branch must now surface
+    in the webhook-produced report.
+    """
+    core = (
+        "def alpha(x):\n    return x\n"
+        "\n\n"
+        "def beta(y):\n    return y\n"
+    )
+    builder.file("core.py", core).commit("initial core")
+    builder.branch("feature")
+    builder.file("core.py", core.replace("def alpha(x):", "def alpha(x, verbose):")).commit("candidate widens alpha")
+    builder.checkout("main")
+    builder.branch("peer-work")
+    builder.file("core.py", core.replace("def alpha(x):", "def alpha(x, retries):")).commit("peer widens alpha")
+    builder.checkout("main")
+    upstream = builder.build()
+
+    peer_payload = {
+        "number": 3,
+        "title": "Also touch alpha",
+        "draft": False,
+        "html_url": f"https://github.com/{SLUG}/pull/3",
+        "user": {"login": "teammate"},
+        "base": {"ref": "main"},
+        "head": {"ref": "peer-work", "sha": "", "repo": {"full_name": SLUG, "clone_url": "unused"}},
+    }
+    candidate_payload = {
+        "number": 7,
+        "title": "Widen alpha",
+        "draft": False,
+        "html_url": f"https://github.com/{SLUG}/pull/7",
+        "user": {"login": "octocat"},
+        "base": {"ref": "main"},
+        "head": {"ref": "feature", "sha": "", "repo": {"full_name": SLUG, "clone_url": "unused"}},
+    }
+    recorder = Recorder(pulls=[candidate_payload, peer_payload])
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+
+    result = analyze_pull_request(SLUG, 7, client=recorder.client(), clone_url=str(upstream), work_dir=str(work_dir))
+
+    assert result.ok, result.error
+    assert result.report is not None
+    overlap = result.report.signal("overlap")
+    assert overlap.status == "findings", overlap.summary
+    branches = {f.evidence["branch"] for f in overlap.findings}
+    assert branches == {"PR #3"}, "the candidate PR itself must not appear as its own peer"
+    finding = overlap.findings[0]
+    assert finding.evidence["granularity"] == "symbol"
+    assert finding.evidence["symbols"] == ["alpha"]
+
+
+def test_analyze_pull_request_survives_a_peer_listing_failure(tmp_path: Path, upstream: Path) -> None:
+    """A failed open-PR listing degrades overlap to skipped, never to a failed run."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path.endswith("/pulls/7"):
+            return httpx.Response(200, json=Recorder().pull_payload)
+        if path.endswith("/pulls"):
+            return httpx.Response(500, json={"message": "boom"})
+        return httpx.Response(200, json=[])
+
+    client = GitHubClient(SLUG, transport=httpx.MockTransport(handler))
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+
+    result = analyze_pull_request(SLUG, 7, client=client, clone_url=str(upstream), work_dir=str(work_dir), post_comment=False)
+
+    assert result.ok, result.error
+    assert result.report is not None
+    assert result.report.signal("overlap").status == "skipped"
 
 
 def test_analyze_pull_request_updates_an_existing_comment(tmp_path: Path, upstream: Path) -> None:
@@ -215,7 +297,7 @@ def test_analyze_pull_request_can_skip_commenting(tmp_path: Path, upstream: Path
 
     assert result.ok, result.error
     assert result.comment_id is None
-    assert recorder.methods == ["GET"], "only the PR fetch; nothing was written"
+    assert recorder.methods == ["GET", "GET"], "the PR fetch and the open-PR listing; nothing was written"
 
 
 def test_config_can_disable_the_comment(tmp_path: Path, upstream: Path) -> None:
@@ -228,7 +310,7 @@ def test_config_can_disable_the_comment(tmp_path: Path, upstream: Path) -> None:
     result = analyze_pull_request(SLUG, 7, client=recorder.client(), clone_url=str(upstream), work_dir=str(work_dir), config=config)
 
     assert result.ok, result.error
-    assert recorder.methods == ["GET"]
+    assert recorder.methods == ["GET", "GET"]
 
 
 def test_analyze_pull_request_captures_a_clone_failure(tmp_path: Path) -> None:

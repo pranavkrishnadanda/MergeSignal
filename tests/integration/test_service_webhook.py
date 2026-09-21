@@ -109,6 +109,10 @@ class FakeGitHub:
             self.bodies.append(json.loads(request.read()))
         if path == f"/repos/{SLUG}/pulls/7":
             return httpx.Response(200, json=WEBHOOK_PAYLOAD["pull_request"])
+        if path == f"/repos/{SLUG}/pulls":
+            # The candidate itself is the only open PR — the worker must skip it
+            # as its own peer and still emit a report.
+            return httpx.Response(200, json=[WEBHOOK_PAYLOAD["pull_request"]])
         if path == f"/repos/{SLUG}/issues/7/comments" and request.method == "GET":
             return httpx.Response(200, json=self.existing)
         if request.method == "POST":
@@ -197,6 +201,7 @@ def test_valid_signature_is_accepted_and_analysed(client: TestClient, github: Fa
 
     assert github.calls == [
         ("GET", f"/repos/{SLUG}/pulls/7"),
+        ("GET", f"/repos/{SLUG}/pulls"),
         ("GET", f"/repos/{SLUG}/issues/7/comments"),
         ("POST", f"/repos/{SLUG}/issues/7/comments"),
     ]

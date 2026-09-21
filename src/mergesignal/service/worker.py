@@ -143,7 +143,15 @@ def analyze_pull_request(
         _check_deadline(deadline)
 
         config = config if config is not None else load_config(None, repo_path=repo_path)
-        report = _run_analysis(repo_path, pr, config, timeout=_remaining(deadline))
+        report = _run_analysis(
+            repo_path,
+            pr,
+            config,
+            client=client,
+            base_url=clone_url or client.repo_clone_url(),
+            deadline=deadline,
+            timeout=_remaining(deadline),
+        )
         _check_deadline(deadline)
 
         if post_comment and getattr(config.github, "comment", True):
@@ -192,14 +200,104 @@ def analyze_pull_request(
             client.close()
 
 
-def _run_analysis(repo_path: str, pr: Any, config: Any, *, timeout: float) -> Report:
-    """Build the context and run the shared pipeline from :mod:`mergesignal.cli`."""
+def _run_analysis(
+    repo_path: str,
+    pr: Any,
+    config: Any,
+    *,
+    client: Any = None,
+    base_url: str | None = None,
+    deadline: float | None = None,
+    timeout: float,
+) -> Report:
+    """Build the context and run the shared pipeline from :mod:`mergesignal.cli`.
+
+    ``client`` + ``base_url`` enable S3: the other open PRs targeting the same
+    base are fetched into the temporary checkout and diffed, so the overlap
+    signal fires on webhook runs exactly as it does for ``analyze --prs``.
+    Without a client the overlap engine simply reports ``skipped``.
+    """
     from mergesignal.cli import build_context, run_pipeline
 
     git_timeout = min(float(config.analysis.git_timeout_seconds), max(timeout, 1.0))
     repo = Repo(repo_path, timeout=git_timeout)
-    ctx = build_context(repo, base_ref_name(pr), head_ref_name(pr), config)
+    others = _collect_peer_diffs(repo, client, pr, config, base_url=base_url, deadline=deadline)
+    ctx = build_context(repo, base_ref_name(pr), head_ref_name(pr), config, others=others)
     return run_pipeline(ctx, config)
+
+
+#: Namespace inside the temporary checkout that peer PR heads are fetched into.
+#: Not ``refs/heads/`` — a peer branch named like the base must never collide
+#: with it, and the whole namespace disappears with the checkout anyway.
+PEER_REF_PREFIX = "refs/mergesignal/others"
+
+
+def _collect_peer_diffs(repo: Repo, client: Any, pr: Any, config: Any, *, base_url: str | None, deadline: float | None) -> list[Any]:
+    """Fetch other open PRs' heads and diff each against the base — S3 input.
+
+    Unlike :func:`mergesignal.cli.collect_others`, which is forbidden from
+    fetching (NFR-2 protects the *user's* repository), the service clone is a
+    throwaway we own, so peers are fetched into ``refs/mergesignal/others/*``.
+
+    Skipped entirely when the overlap engine is disabled or no client is
+    available. Otherwise every failure is per-PR: an unfetchable peer (deleted
+    fork, missing ref) is skipped with a warning, and a failed listing degrades
+    to no peers — overlap reports ``skipped`` rather than sinking the run.
+    """
+    if client is None or not config.is_enabled("overlap"):
+        return []
+
+    base = base_ref_name(pr)
+    try:
+        pulls = client.list_open_pulls(limit=config.github.max_prs, base=base)
+    except Exception as exc:  # noqa: BLE001 - overlap is advisory, never fatal
+        logger.warning("could not list open PRs for overlap on %s#%s: %s", client.repo_slug, getattr(pr, "number", "?"), exc)
+        return []
+
+    others: list[Any] = []
+    for pull in pulls:
+        if deadline is not None:
+            _check_deadline(deadline)
+        if pull.number == getattr(pr, "number", None) or not pull.head_ref:
+            continue
+        local_ref = f"{PEER_REF_PREFIX}/pr-{pull.number}"
+        url = pull.head_repo_clone_url or base_url
+        if not url:
+            continue
+        try:
+            _fetch(repo, url, [f"+refs/heads/{pull.head_ref}:{local_ref}"], depth=DEFAULT_FETCH_DEPTH)
+        except GitError as exc:
+            logger.warning("skipping peer %s for overlap: %s", pull.label, exc)
+            continue
+        try:
+            others.append(_branch_diff_for_peer(repo, pull, local_ref, base, config))
+        except GitError as exc:
+            logger.warning("could not diff peer %s: %s", pull.label, exc)
+    return others
+
+
+def _branch_diff_for_peer(repo: Repo, pull: Any, local_ref: str, base: str, config: Any) -> Any:
+    """One :class:`BranchDiff` for a fetched peer head.
+
+    A shallow fetch can leave the peer's merge base with ``base`` unreachable;
+    ``git diff base...ref`` then fails, and the caller skips the peer rather
+    than reporting a diff computed against the wrong commits.
+    """
+    from mergesignal.analysis.diff import diff_refs
+    from mergesignal.cli import index_branch_symbols
+    from mergesignal.models import BranchDiff
+
+    diff = diff_refs(repo, base, local_ref, merge_base=True, max_files=config.analysis.max_files)
+    return BranchDiff(
+        name=pull.label,
+        head=local_ref,
+        base=base,
+        diff=diff,
+        symbols=index_branch_symbols(repo, local_ref, diff, config, base=base),
+        pr_number=pull.number,
+        url=pull.url or None,
+        author=pull.author or None,
+    )
 
 
 def prepare_checkout(
