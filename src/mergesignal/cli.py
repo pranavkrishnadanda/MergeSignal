@@ -418,19 +418,24 @@ def serve(
 
     Requires MERGESIGNAL_WEBHOOK_SECRET, plus either MERGESIGNAL_APP_ID with
     MERGESIGNAL_PRIVATE_KEY, or GITHUB_TOKEN. Exits 2 when the service cannot
-    start. **Owned by Agent F** — the body below is a placeholder delegation.
+    start — a missing webhook secret is refused up front rather than accepting
+    unsigned traffic, and a missing FastAPI/uvicorn install is reported as such
+    instead of a traceback.
     """
     _load_config_or_exit(config_path, ".")
     try:
         from mergesignal.service.server import run as run_server
 
         run_server(host=host, port=port, reload=reload, log_level=log_level)
-    except NotImplementedError as exc:
-        _echo_err("error: the webhook service is not implemented yet")
+    except ImportError as exc:
+        _echo_err(f"error: the webhook service needs the web dependencies (fastapi, uvicorn): {exc}")
         raise typer.Exit(EXIT_ERROR) from exc
-    except (ImportError, RuntimeError) as exc:
+    except RuntimeError as exc:
         _echo_err(f"error: {exc}")
         raise typer.Exit(EXIT_ERROR) from exc
+    except KeyboardInterrupt:  # pragma: no cover - interactive shutdown
+        _echo_err("shutting down")
+        raise typer.Exit(EXIT_CLEAN) from None
 
 
 # ------------------------------------------------------------------- helpers
@@ -534,12 +539,87 @@ def collect_others(repo: Repo, config: Config, *, branches: list[str] | None, pr
 
 
 def _collect_pr_diffs(repo: Repo, config: Config, pr_values: list[str], *, base: str) -> list[BranchDiff]:
-    """Fetch open PRs and diff each against ``base``. **Owned by Agent F.**
+    """Fetch open PRs and diff each against ``base``.
 
     ``open`` expands to every open PR up to ``config.github.max_prs``; otherwise
     the values are PR numbers.
+
+    The diff is computed from objects **already present locally** — this command
+    never fetches, because NFR-2 forbids mutating the user's repository. A PR
+    whose head is not in the local object store is skipped with a warning
+    telling the user to ``git fetch`` it; that is far better than silently
+    rewriting their refs behind their back.
     """
-    raise NotImplementedError
+    from mergesignal.analysis.diff import diff_refs
+    from mergesignal.github.client import GitHubClient
+
+    slug = _resolve_repo_slug(repo, config)
+    numbers: list[int] = []
+    wants_open = False
+    for value in pr_values:
+        if value.lower() in ("open", "all", "*"):
+            wants_open = True
+            continue
+        try:
+            numbers.append(int(value.lstrip("#")))
+        except ValueError:
+            _echo_err(f"warning: ignoring unrecognised --prs value {value!r}")
+
+    others: list[BranchDiff] = []
+    with GitHubClient(slug, token=config.github.token(), api_url=config.github.api_url) as client:
+        pulls = list(client.list_open_pulls(limit=config.github.max_prs)) if wants_open else []
+        seen = {p.number for p in pulls}
+        for number in numbers:
+            if number not in seen:
+                pulls.append(client.get_pull(number))
+                seen.add(number)
+
+        for pull in pulls:
+            ref = _local_ref_for_pull(repo, pull)
+            if ref is None:
+                _echo_err(f"warning: skipping PR #{pull.number}: {pull.head_ref} is not in the local repository (git fetch it first)")
+                continue
+            others.append(
+                BranchDiff(
+                    name=pull.label,
+                    head=ref,
+                    base=base,
+                    diff=diff_refs(repo, base, ref, merge_base=True, max_files=config.analysis.max_files),
+                    pr_number=pull.number,
+                    url=pull.url or None,
+                    author=pull.author or None,
+                )
+            )
+    return others
+
+
+def _resolve_repo_slug(repo: Repo, config: Config) -> str:
+    """Determine ``owner/name`` from the config or the ``origin`` remote.
+
+    :raises GitError: neither source yields a usable slug.
+    """
+    from mergesignal.github.client import slug_from_remote
+
+    if config.github.repo:
+        return config.github.repo
+    result = repo.run_result(["remote", "get-url", "origin"])
+    slug = slug_from_remote(result.stdout.strip()) if result.ok else None
+    if slug is None:
+        raise GitError("cannot determine the GitHub repository; set github.repo in .mergesignal.yaml")
+    return slug
+
+
+def _local_ref_for_pull(repo: Repo, pull: Any) -> str | None:
+    """Find a locally available ref for a PR's head, or ``None``.
+
+    Tries the exact head sha first (present when the user has fetched the PR),
+    then the usual remote-tracking and ``refs/pull`` locations.
+    """
+    candidates = [pull.head_sha, f"refs/pull/{pull.number}/head", f"origin/{pull.head_ref}", pull.head_ref]
+    for candidate in candidates:
+        if candidate and repo.ref_exists(candidate):
+            return candidate
+    return None
 
 
 if __name__ == "__main__":  # pragma: no cover - module entry point

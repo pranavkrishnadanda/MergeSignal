@@ -1,8 +1,11 @@
 """End-to-end CLI tests against real repositories.
 
-These pin the FR-7 exit-code contract and prove that the pipeline degrades
-gracefully while the signal engines are still stubs: every engine reports
-``status="error"`` instead of raising, and the report still renders.
+These prove that ``mergesignal analyze`` runs the real engines and renders a
+full report (text and JSON) on a genuine repository, and they pin the FR-7
+exit-code contract end to end: 0 when nothing reaches the severity threshold,
+1 when a finding does, 2 when anything errors — including a signal engine
+blowing up, which :func:`run_signal` converts into ``Signal(status="error")``
+instead of letting it escape.
 """
 
 from __future__ import annotations
@@ -50,22 +53,68 @@ def test_help_lists_all_commands() -> None:
         assert command in result.stdout
 
 
-def test_analyze_renders_report_with_error_signals(diverged: Path) -> None:
+def test_analyze_renders_report(diverged: Path) -> None:
+    """Every engine runs for real and every signal gets a rendered row.
+
+    On the clean-merge scenario the risk engine emits a ``high`` finding, which
+    is exactly the default severity threshold, so FR-7 makes this run exit 1.
+    """
     result = runner.invoke(app, ["analyze", "--base", "main", "--head", "feature", "-C", str(diverged)])
-    assert result.exit_code == EXIT_ERROR, result.stdout
+    assert result.exit_code == EXIT_FINDINGS, result.stdout
+    assert "MergeSignal report" in result.stdout
     for name in SIGNAL_NAMES:
         assert name in result.stdout
-    assert "not implemented" in result.stdout
+    # The engines are implemented: nothing may degrade to a bootstrap error row.
+    assert "not implemented" not in result.stdout
+    assert "Traceback" not in result.stdout
+
+
+def test_analyze_exits_clean_when_no_finding_reaches_the_threshold(diverged: Path) -> None:
+    """Same repository, threshold raised above the worst finding: FR-7 exit 0."""
+    result = runner.invoke(app, ["analyze", "--base", "main", "--head", "feature", "-C", str(diverged), "--threshold", "critical"])
+    assert result.exit_code == EXIT_CLEAN, result.stdout
+    # The findings are still reported — they just are not fatal any more.
+    assert "risk" in result.stdout
+
+
+def test_analyze_exits_error_when_an_engine_fails(monkeypatch, diverged: Path) -> None:
+    """A raising engine becomes an error row and forces FR-7 exit 2."""
+    from mergesignal import signals
+
+    def boom(ctx: object) -> None:
+        raise RuntimeError("engine exploded")
+
+    monkeypatch.setitem(signals.REGISTRY, "semantic", boom)
+    result = runner.invoke(app, ["analyze", "--base", "main", "--head", "feature", "-C", str(diverged)])
+    assert result.exit_code == EXIT_ERROR, result.stdout
+    assert "RuntimeError: engine exploded" in result.stdout
+    # The rest of the report still renders: one bad engine must not lose it.
+    for name in SIGNAL_NAMES:
+        assert name in result.stdout
 
 
 def test_analyze_json_output_is_parseable(diverged: Path) -> None:
+    """``--format json`` emits Report JSON with the real per-signal statuses."""
     result = runner.invoke(app, ["analyze", "--base", "main", "--head", "feature", "-C", str(diverged), "--format", "json"])
+    assert result.exit_code == EXIT_FINDINGS, result.stdout
     payload = json.loads(result.stdout)
     assert payload["base"] == "main"
     assert payload["head"] == "feature"
     assert len(payload["merge_base"]) == 40
     assert [s["name"] for s in payload["signals"]] == list(SIGNAL_NAMES)
-    assert {s["status"] for s in payload["signals"]} == {"error"}
+    # Two branches touching different files: nothing conflicts, nothing breaks,
+    # there is no second branch to overlap with, and risk always has something
+    # to say — which is what makes this run exit 1 rather than 0.
+    assert {s["name"]: s["status"] for s in payload["signals"]} == {
+        "conflicts": "ok",
+        "semantic": "ok",
+        "overlap": "skipped",
+        "risk": "findings",
+    }
+    risk = next(s for s in payload["signals"] if s["name"] == "risk")
+    assert risk["findings"], risk
+    assert payload["risk_score"] is not None
+    assert 0.0 <= payload["risk_score"]["score"] <= 100.0
 
 
 def test_analyze_respects_signal_selection(diverged: Path) -> None:
@@ -131,8 +180,20 @@ class TestPipeline:
         with pytest.raises(GitError):
             build_context(Repo(diverged), "main", "ghost", Config())
 
-    def test_run_signal_converts_not_implemented(self, make_context) -> None:
+    def test_run_signal_converts_not_implemented(self, monkeypatch, make_context) -> None:
+        """An engine raising NotImplementedError degrades to an error row.
+
+        Injected rather than taken from the registry: the conversion mechanism
+        is what is under test, not which engine happens to raise what today.
+        """
+        from mergesignal import signals
+
+        def pending(ctx: object) -> None:
+            raise NotImplementedError("conflicts engine pending")
+
+        monkeypatch.setitem(signals.REGISTRY, "conflicts", pending)
         signal = run_signal("conflicts", make_context())
+        assert signal.name == "conflicts"
         assert signal.status == "error"
         assert signal.summary == "not implemented"
         assert signal.duration_ms is not None
