@@ -43,7 +43,6 @@ jobs:
 
       - name: ruff format --check
         run: ruff format --check src tests
-        continue-on-error: true
 
   test:
     name: pytest (py${{ matrix.python-version }})

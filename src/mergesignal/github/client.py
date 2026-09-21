@@ -94,7 +94,11 @@ class GitHubClient:
         Enterprise setups whose clone host differs from the API host, and tests
         that clone from a local path.
         """
-        if not isinstance(repo_slug, str) or repo_slug.count("/") != 1 or not all(repo_slug.split("/")):
+        if (
+            not isinstance(repo_slug, str)
+            or repo_slug.count("/") != 1
+            or not all(repo_slug.split("/"))
+        ):
             raise ValueError(f"repo_slug must be 'owner/name', got {repo_slug!r}")
         self.repo_slug = repo_slug
         self.api_url = api_url.rstrip("/")
@@ -212,7 +216,9 @@ class GitHubClient:
 
     # ------------------------------------------------------------------ PRs
 
-    def list_open_pulls(self, *, limit: int = 20, base: str | None = None, include_drafts: bool = False) -> list[PullRequest]:
+    def list_open_pulls(
+        self, *, limit: int = 20, base: str | None = None, include_drafts: bool = False
+    ) -> list[PullRequest]:
         """List open PRs, newest first, following pagination up to ``limit``.
 
         :param base: only PRs targeting this base branch.
@@ -246,20 +252,36 @@ class GitHubClient:
     def list_issue_comments(self, number: int, *, limit: int = 100) -> list[dict[str, Any]]:
         """Raw issue comments on a PR, oldest first — input to
         :func:`~mergesignal.report.github_comment.find_existing_comment`."""
-        raw = self._paginate(f"/repos/{self.repo_slug}/issues/{int(number)}/comments", params={}, limit=max(limit, 0))
+        raw = self._paginate(
+            f"/repos/{self.repo_slug}/issues/{int(number)}/comments", params={}, limit=max(limit, 0)
+        )
         return [item for item in raw if isinstance(item, dict)]
 
     def create_comment(self, number: int, body: str) -> dict[str, Any]:
         """Post a new issue comment on a PR."""
-        data = _json(self._request("POST", f"/repos/{self.repo_slug}/issues/{int(number)}/comments", json={"body": body}))
+        data = _json(
+            self._request(
+                "POST",
+                f"/repos/{self.repo_slug}/issues/{int(number)}/comments",
+                json={"body": body},
+            )
+        )
         return data if isinstance(data, dict) else {}
 
     def update_comment(self, comment_id: int, body: str) -> dict[str, Any]:
         """Edit an existing issue comment in place."""
-        data = _json(self._request("PATCH", f"/repos/{self.repo_slug}/issues/comments/{int(comment_id)}", json={"body": body}))
+        data = _json(
+            self._request(
+                "PATCH",
+                f"/repos/{self.repo_slug}/issues/comments/{int(comment_id)}",
+                json={"body": body},
+            )
+        )
         return data if isinstance(data, dict) else {}
 
-    def upsert_comment(self, number: int, body: str, *, bot_login: str | None = None) -> dict[str, Any]:
+    def upsert_comment(
+        self, number: int, body: str, *, bot_login: str | None = None
+    ) -> dict[str, Any]:
         """Create-or-update the single MergeSignal comment carrying ``body``.
 
         ``body`` must already contain
@@ -269,13 +291,17 @@ class GitHubClient:
         from mergesignal.report.github_comment import COMMENT_MARKER, find_existing_comment
 
         if COMMENT_MARKER not in body:
-            raise ValueError("comment body is missing the MergeSignal marker; it would not be idempotent")
+            raise ValueError(
+                "comment body is missing the MergeSignal marker; it would not be idempotent"
+            )
         existing = find_existing_comment(self.list_issue_comments(number), bot_login=bot_login)
         if existing is not None and isinstance(existing.get("id"), int):
             return self.update_comment(existing["id"], body)
         return self.create_comment(number, body)
 
-    def upsert_report_comment(self, number: int, report: Report, *, bot_login: str | None = None, verbose: bool = False) -> dict[str, Any]:
+    def upsert_report_comment(
+        self, number: int, report: Report, *, bot_login: str | None = None, verbose: bool = False
+    ) -> dict[str, Any]:
         """Render ``report`` and create-or-update the single MergeSignal comment.
 
         This is the idempotency guarantee of FR-8: find the marker comment via
@@ -289,7 +315,14 @@ class GitHubClient:
 
     # ------------------------------------------------------------ check runs
 
-    def create_check_run(self, head_sha: str, report: Report, *, name: str = "MergeSignal", threshold: Severity = "high") -> dict[str, Any]:
+    def create_check_run(
+        self,
+        head_sha: str,
+        report: Report,
+        *,
+        name: str = "MergeSignal",
+        threshold: Severity = "high",
+    ) -> dict[str, Any]:
         """Optionally publish a check run summarising the report.
 
         Conclusion is ``failure`` when findings exceed the configured threshold,

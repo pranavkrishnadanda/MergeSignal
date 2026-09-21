@@ -31,7 +31,12 @@ def hunk(path: str, base: tuple[int, int], head: tuple[int, int] | None = None) 
     )
 
 
-def diff(*files: tuple[str, list[tuple[int, int]]], base: str = "main", head: str = "feature", old_paths: dict[str, str] | None = None) -> Diff:
+def diff(
+    *files: tuple[str, list[tuple[int, int]]],
+    base: str = "main",
+    head: str = "feature",
+    old_paths: dict[str, str] | None = None,
+) -> Diff:
     """Build a :class:`~mergesignal.models.Diff` from ``(path, [(start, end), ...])``."""
     old_paths = old_paths or {}
     return Diff(
@@ -50,7 +55,9 @@ def diff(*files: tuple[str, list[tuple[int, int]]], base: str = "main", head: st
     )
 
 
-def branch(name: str, changed: Diff, *, symbols: list[str] | None = None, **kwargs: object) -> BranchDiff:
+def branch(
+    name: str, changed: Diff, *, symbols: list[str] | None = None, **kwargs: object
+) -> BranchDiff:
     """Build a :class:`~mergesignal.models.BranchDiff` for ``ctx.others``."""
     return BranchDiff(
         name=name,
@@ -64,7 +71,9 @@ def branch(name: str, changed: Diff, *, symbols: list[str] | None = None, **kwar
 
 def change(name: str, *, file: str = "lib.py") -> SymbolChange:
     """A candidate-side symbol change, the sharpest overlap key we have."""
-    return SymbolChange(symbol=Symbol(name=name, kind="function", file=file, line=1), kind="modified")
+    return SymbolChange(
+        symbol=Symbol(name=name, kind="function", file=file, line=1), kind="modified"
+    )
 
 
 # ------------------------------------------------------------------ skipping
@@ -87,7 +96,10 @@ def test_missing_candidate_diff_is_skipped(make_context: Callable[..., AnalysisC
 
 def test_empty_candidate_diff_is_skipped(make_context: Callable[..., AnalysisContext]) -> None:
     signal = overlap.analyze(
-        make_context(head_diff=Diff(base="main", head="feature", files=[]), others=[branch("other", diff(("a.py", [(1, 5)])))])
+        make_context(
+            head_diff=Diff(base="main", head="feature", files=[]),
+            others=[branch("other", diff(("a.py", [(1, 5)])))],
+        )
     )
 
     assert signal.status == "skipped"
@@ -95,7 +107,11 @@ def test_empty_candidate_diff_is_skipped(make_context: Callable[..., AnalysisCon
 
 
 def test_candidate_itself_is_filtered_out(make_context: Callable[..., AnalysisContext]) -> None:
-    ctx = make_context(head="feature", head_diff=diff(("a.py", [(1, 5)])), others=[branch("feature", diff(("a.py", [(1, 5)])))])
+    ctx = make_context(
+        head="feature",
+        head_diff=diff(("a.py", [(1, 5)])),
+        others=[branch("feature", diff(("a.py", [(1, 5)])))],
+    )
 
     signal = overlap.analyze(ctx)
 
@@ -103,8 +119,12 @@ def test_candidate_itself_is_filtered_out(make_context: Callable[..., AnalysisCo
     assert signal.metadata["compared"] == 0
 
 
-def test_never_raises(monkeypatch: pytest.MonkeyPatch, make_context: Callable[..., AnalysisContext]) -> None:
-    monkeypatch.setattr(overlap, "_analyze", lambda _ctx: (_ for _ in ()).throw(RuntimeError("boom")))
+def test_never_raises(
+    monkeypatch: pytest.MonkeyPatch, make_context: Callable[..., AnalysisContext]
+) -> None:
+    monkeypatch.setattr(
+        overlap, "_analyze", lambda _ctx: (_ for _ in ()).throw(RuntimeError("boom"))
+    )
 
     signal = overlap.analyze(make_context())
 
@@ -115,8 +135,12 @@ def test_never_raises(monkeypatch: pytest.MonkeyPatch, make_context: Callable[..
 # --------------------------------------------------------------- granularity
 
 
-def test_disjoint_branches_produce_no_findings(make_context: Callable[..., AnalysisContext]) -> None:
-    ctx = make_context(head_diff=diff(("a.py", [(1, 5)])), others=[branch("other", diff(("z.py", [(1, 5)])))])
+def test_disjoint_branches_produce_no_findings(
+    make_context: Callable[..., AnalysisContext],
+) -> None:
+    ctx = make_context(
+        head_diff=diff(("a.py", [(1, 5)])), others=[branch("other", diff(("z.py", [(1, 5)])))]
+    )
 
     signal = overlap.analyze(ctx)
 
@@ -125,8 +149,12 @@ def test_disjoint_branches_produce_no_findings(make_context: Callable[..., Analy
     assert signal.metadata["collisions"] == 0
 
 
-def test_same_file_far_apart_is_file_granularity(make_context: Callable[..., AnalysisContext]) -> None:
-    ctx = make_context(head_diff=diff(("a.py", [(1, 5)])), others=[branch("other", diff(("a.py", [(500, 510)])))])
+def test_same_file_far_apart_is_file_granularity(
+    make_context: Callable[..., AnalysisContext],
+) -> None:
+    ctx = make_context(
+        head_diff=diff(("a.py", [(1, 5)])), others=[branch("other", diff(("a.py", [(500, 510)])))]
+    )
 
     (finding,) = overlap.analyze(ctx).findings
 
@@ -137,18 +165,27 @@ def test_same_file_far_apart_is_file_granularity(make_context: Callable[..., Ana
 
 
 def test_intersecting_hunks_are_high(make_context: Callable[..., AnalysisContext]) -> None:
-    ctx = make_context(head_diff=diff(("a.py", [(10, 20)])), others=[branch("other", diff(("a.py", [(15, 25)])))])
+    ctx = make_context(
+        head_diff=diff(("a.py", [(10, 20)])), others=[branch("other", diff(("a.py", [(15, 25)])))]
+    )
 
     (finding,) = overlap.analyze(ctx).findings
 
     assert finding.evidence["granularity"] == "hunk"
     assert finding.severity == "high"
     assert finding.evidence["direct_hunk_count"] == 1
-    assert finding.evidence["hunks"][0] == {"file": "a.py", "candidate": [10, 20], "other": [15, 25], "direct": True}
+    assert finding.evidence["hunks"][0] == {
+        "file": "a.py",
+        "candidate": [10, 20],
+        "other": [15, 25],
+        "direct": True,
+    }
 
 
 def test_adjacent_hunks_are_medium(make_context: Callable[..., AnalysisContext]) -> None:
-    ctx = make_context(head_diff=diff(("a.py", [(10, 12)])), others=[branch("other", diff(("a.py", [(16, 18)])))])
+    ctx = make_context(
+        head_diff=diff(("a.py", [(10, 12)])), others=[branch("other", diff(("a.py", [(16, 18)])))]
+    )
 
     (finding,) = overlap.analyze(ctx).findings
 
@@ -173,7 +210,9 @@ def test_shared_symbol_beats_hunk_and_file(make_context: Callable[..., AnalysisC
     assert finding.evidence["symbols"] == ["shared"]
 
 
-def test_symbol_match_without_file_overlap_is_not_reported(make_context: Callable[..., AnalysisContext]) -> None:
+def test_symbol_match_without_file_overlap_is_not_reported(
+    make_context: Callable[..., AnalysisContext],
+) -> None:
     """A coincidental name match in an unrelated file must not manufacture a collision."""
     ctx = make_context(
         head_diff=diff(("mine.py", [(1, 5)])),
@@ -211,7 +250,11 @@ def test_findings_are_ranked_by_granularity(make_context: Callable[..., Analysis
 
     signal = overlap.analyze(ctx)
 
-    assert [f.evidence["branch"] for f in signal.findings] == ["symbol-level", "hunk-level", "file-level"]
+    assert [f.evidence["branch"] for f in signal.findings] == [
+        "symbol-level",
+        "hunk-level",
+        "file-level",
+    ]
     assert "sharpest collision at symbol level" in signal.summary
     assert signal.metadata["collisions"] == 3
 
@@ -275,7 +318,9 @@ def test_symbol_overlap_intersects_names() -> None:
 
 
 def test_compare_returns_none_when_disjoint() -> None:
-    assert overlap.compare(diff(("a.py", [(1, 5)])), branch("other", diff(("b.py", [(1, 5)])))) is None
+    assert (
+        overlap.compare(diff(("a.py", [(1, 5)])), branch("other", diff(("b.py", [(1, 5)])))) is None
+    )
 
 
 def test_rank_is_stable_for_equal_granularity() -> None:
@@ -284,4 +329,7 @@ def test_rank_is_stable_for_equal_granularity() -> None:
         for name in ("zulu", "alpha")
     ]
 
-    assert [f.evidence["branch"] for f in overlap.rank([f for f in findings if f])] == ["alpha", "zulu"]
+    assert [f.evidence["branch"] for f in overlap.rank([f for f in findings if f])] == [
+        "alpha",
+        "zulu",
+    ]

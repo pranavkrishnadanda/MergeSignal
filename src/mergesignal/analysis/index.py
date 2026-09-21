@@ -79,9 +79,12 @@ class SymbolIndex:
             rather than silently assuming a symbol is unused.
         """
         self.ref = ref
-        self._symbols: list[Symbol] = sorted(symbols, key=lambda s: (s.file, s.line, s.name, s.kind))
+        self._symbols: list[Symbol] = sorted(
+            symbols, key=lambda s: (s.file, s.line, s.name, s.kind)
+        )
         self._references: list[Reference] = sorted(
-            references, key=lambda r: (r.file, r.line, r.column if r.column is not None else -1, r.name)
+            references,
+            key=lambda r: (r.file, r.line, r.column if r.column is not None else -1, r.name),
         )
         self._skipped: list[str] = sorted(set(skipped or []))
 
@@ -379,7 +382,11 @@ def diff_symbols(
     for old, new in pairs:
         old_signature, new_signature = _sig(old), _sig(new)
         moved = old.file != new.file
-        if old_signature is not None and new_signature is not None and old_signature != new_signature:
+        if (
+            old_signature is not None
+            and new_signature is not None
+            and old_signature != new_signature
+        ):
             changes.append(
                 SymbolChange(
                     symbol=new,
@@ -426,7 +433,9 @@ def diff_symbols(
         if id(symbol) in renamed_old:
             continue
         changes.append(
-            SymbolChange(symbol=symbol, kind="removed", old_signature=_sig(symbol), confidence="high")
+            SymbolChange(
+                symbol=symbol, kind="removed", old_signature=_sig(symbol), confidence="high"
+            )
         )
     for symbol in unmatched_head:
         if id(symbol) in renamed_new:

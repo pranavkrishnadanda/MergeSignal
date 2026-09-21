@@ -38,7 +38,9 @@ NOW = datetime.now(UTC)
 LOG_Z = (
     "\x01" + "a" * 40 + "\0z@example.com\x002024-05-01T10:00:00Z\0\na.py\0b.py\0"
     "\x01" + "b" * 40 + "\0author@example.com\x002024-04-30T10:00:00Z\0\na.py\0"
-    "\x01" + "c" * 40 + "\0author@example.com\x002024-04-29T10:00:00Z\0\ndir with space/ünïcodé.txt\0"
+    "\x01"
+    + "c" * 40
+    + "\0author@example.com\x002024-04-29T10:00:00Z\0\ndir with space/ünïcodé.txt\0"
 )
 
 
@@ -200,7 +202,9 @@ def test_co_change_ignores_merge_commits(tmp_path: Path) -> None:
 def test_author_share_normalises_to_fractions(history_repo: Repo) -> None:
     shares = author_share(history_repo, ["a.py"])
 
-    assert shares["a.py"] == pytest.approx({"author@example.com": 2 / 3, "other@example.com": 1 / 3})
+    assert shares["a.py"] == pytest.approx(
+        {"author@example.com": 2 / 3, "other@example.com": 1 / 3}
+    )
     assert sum(shares["a.py"].values()) == pytest.approx(1.0)
 
 

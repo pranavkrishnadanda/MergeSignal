@@ -79,11 +79,17 @@ def _analyze(ctx: AnalysisContext) -> Signal:
     """The real body of :func:`analyze`, wrapped by its exception trap."""
     candidate = ctx.head_diff
     if candidate is None:
-        return Signal.skipped(NAME, "no diff available for the candidate; overlap not computed", others=len(ctx.others))
+        return Signal.skipped(
+            NAME,
+            "no diff available for the candidate; overlap not computed",
+            others=len(ctx.others),
+        )
     if not candidate.files:
         return Signal.skipped(NAME, "empty diff; nothing can collide", others=len(ctx.others))
     if not ctx.others:
-        return Signal.skipped(NAME, "no other branches or PRs supplied (use --branches or --prs)", others=0)
+        return Signal.skipped(
+            NAME, "no other branches or PRs supplied (use --branches or --prs)", others=0
+        )
 
     candidate_symbols = _candidate_symbols(ctx)
     findings: list[Finding] = []
@@ -121,7 +127,13 @@ def _analyze(ctx: AnalysisContext) -> Signal:
     return Signal.from_findings(NAME, findings, _summarize(findings, compared), **metadata)
 
 
-def compare(candidate: Diff, other: BranchDiff, *, candidate_symbols: list[str] | None = None, adjacency: int = ADJACENCY_LINES) -> Finding | None:
+def compare(
+    candidate: Diff,
+    other: BranchDiff,
+    *,
+    candidate_symbols: list[str] | None = None,
+    adjacency: int = ADJACENCY_LINES,
+) -> Finding | None:
     """Compare the candidate against one other change set.
 
     :returns: a :class:`~mergesignal.models.Finding` describing the strongest
@@ -135,7 +147,9 @@ def compare(candidate: Diff, other: BranchDiff, *, candidate_symbols: list[str] 
     if not files:
         return None
 
-    symbols = symbol_overlap(candidate_symbols or [], [symbol.qualified_name for symbol in other.symbols])
+    symbols = symbol_overlap(
+        candidate_symbols or [], [symbol.qualified_name for symbol in other.symbols]
+    )
     hunks = hunk_overlap(candidate, other.diff, adjacency=adjacency)
     direct = [entry for entry in hunks if _ranges_intersect(entry[1], entry[2])]
 
@@ -164,7 +178,12 @@ def compare(candidate: Diff, other: BranchDiff, *, candidate_symbols: list[str] 
         "symbols": sorted_symbols[:MAX_EVIDENCE_NAMES],
         "symbol_count": len(sorted_symbols),
         "hunks": [
-            {"file": path, "candidate": [cand[0], cand[1]], "other": [oth[0], oth[1]], "direct": _ranges_intersect(cand, oth)}
+            {
+                "file": path,
+                "candidate": [cand[0], cand[1]],
+                "other": [oth[0], oth[1]],
+                "direct": _ranges_intersect(cand, oth),
+            }
             for path, cand, oth in hunks[:MAX_EVIDENCE_HUNKS]
         ],
         "hunk_count": len(hunks),
@@ -212,7 +231,9 @@ def file_overlap(candidate: Diff, other: Diff) -> set[str]:
     return _path_keys(candidate) & _path_keys(other)
 
 
-def hunk_overlap(candidate: Diff, other: Diff, *, adjacency: int = ADJACENCY_LINES) -> list[tuple[str, tuple[int, int], tuple[int, int]]]:
+def hunk_overlap(
+    candidate: Diff, other: Diff, *, adjacency: int = ADJACENCY_LINES
+) -> list[tuple[str, tuple[int, int], tuple[int, int]]]:
     """Intersecting (or near-intersecting) hunk ranges, per shared file.
 
     Comparison happens on the **base** side ranges, since that is the only
@@ -227,7 +248,9 @@ def hunk_overlap(candidate: Diff, other: Diff, *, adjacency: int = ADJACENCY_LIN
         for key in _keys_for(changed):
             for candidate_range in _base_ranges(changed):
                 for other_range in other_ranges.get(key, ()):
-                    if _ranges_intersect(candidate_range, other_range) or _gap(candidate_range, other_range) <= max(adjacency, 0):
+                    if _ranges_intersect(candidate_range, other_range) or _gap(
+                        candidate_range, other_range
+                    ) <= max(adjacency, 0):
                         results.append((key, candidate_range, other_range))
     return sorted(set(results))
 
@@ -242,8 +265,14 @@ def rank(findings: list[Finding]) -> list[Finding]:
 
     def key(finding: Finding) -> tuple[int, int, str]:
         granularity = str(finding.evidence.get("granularity", ""))
-        rank_index = GRANULARITIES.index(granularity) if granularity in GRANULARITIES else len(GRANULARITIES)
-        return (rank_index, -SEVERITY_ORDER[finding.severity], str(finding.evidence.get("branch", finding.title)))
+        rank_index = (
+            GRANULARITIES.index(granularity) if granularity in GRANULARITIES else len(GRANULARITIES)
+        )
+        return (
+            rank_index,
+            -SEVERITY_ORDER[finding.severity],
+            str(finding.evidence.get("branch", finding.title)),
+        )
 
     return sorted(findings, key=key)
 

@@ -203,7 +203,9 @@ def test_rename_vs_new_caller_is_a_clean_but_broken_merge(run_scenario) -> None:
     patterns = {f.evidence.get("pattern") for f in semantic.findings}
     assert "renamed_old_name_referenced" in patterns
 
-    finding = next(f for f in semantic.findings if f.evidence.get("pattern") == "renamed_old_name_referenced")
+    finding = next(
+        f for f in semantic.findings if f.evidence.get("pattern") == "renamed_old_name_referenced"
+    )
     assert finding.evidence["old_name"] == "load_settings"
     assert finding.evidence["new_name"] == "read_settings"
     assert finding.file == "startup.py"
@@ -257,7 +259,10 @@ def test_overlap_ranks_colliding_branches_and_ignores_the_rest(run_scenario) -> 
 
     from mergesignal.models import SEVERITY_ORDER
 
-    assert SEVERITY_ORDER[by_branch["peer-symbol"].severity] >= SEVERITY_ORDER[by_branch["peer-hunk"].severity]
+    assert (
+        SEVERITY_ORDER[by_branch["peer-symbol"].severity]
+        >= SEVERITY_ORDER[by_branch["peer-hunk"].severity]
+    )
 
 
 def test_unsupported_language_skips_rather_than_claiming_ok(run_scenario) -> None:

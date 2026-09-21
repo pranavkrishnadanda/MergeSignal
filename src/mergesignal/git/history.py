@@ -84,7 +84,14 @@ class HistoryStats:
     """The lookback window actually used."""
 
 
-def collect_history(repo: Repo, paths: list[str] | None = None, *, ref: str = "HEAD", days: int = DEFAULT_HISTORY_DAYS, max_commits: int = DEFAULT_MAX_COMMITS) -> HistoryStats:
+def collect_history(
+    repo: Repo,
+    paths: list[str] | None = None,
+    *,
+    ref: str = "HEAD",
+    days: int = DEFAULT_HISTORY_DAYS,
+    max_commits: int = DEFAULT_MAX_COMMITS,
+) -> HistoryStats:
     """Walk bounded history once and derive churn, co-change and author stats.
 
     A single ``git log --name-only -z --since=<days>.days.ago -n <max_commits>``
@@ -139,7 +146,14 @@ def collect_history(repo: Repo, paths: list[str] | None = None, *, ref: str = "H
     )
 
 
-def churn(repo: Repo, paths: list[str], *, ref: str = "HEAD", days: int = DEFAULT_HISTORY_DAYS, max_commits: int = DEFAULT_MAX_COMMITS) -> dict[str, int]:
+def churn(
+    repo: Repo,
+    paths: list[str],
+    *,
+    ref: str = "HEAD",
+    days: int = DEFAULT_HISTORY_DAYS,
+    max_commits: int = DEFAULT_MAX_COMMITS,
+) -> dict[str, int]:
     """Commits touching each path within the window.
 
     Paths with no commits in the window are present with value ``0`` so callers
@@ -148,7 +162,15 @@ def churn(repo: Repo, paths: list[str], *, ref: str = "HEAD", days: int = DEFAUL
     return collect_history(repo, paths, ref=ref, days=days, max_commits=max_commits).churn
 
 
-def co_change(repo: Repo, paths: list[str], *, ref: str = "HEAD", days: int = DEFAULT_HISTORY_DAYS, max_commits: int = DEFAULT_MAX_COMMITS, min_support: int = 2) -> dict[str, dict[str, int]]:
+def co_change(
+    repo: Repo,
+    paths: list[str],
+    *,
+    ref: str = "HEAD",
+    days: int = DEFAULT_HISTORY_DAYS,
+    max_commits: int = DEFAULT_MAX_COMMITS,
+    min_support: int = 2,
+) -> dict[str, dict[str, int]]:
     """Files historically committed together with each of ``paths``.
 
     :param min_support: ignore pairs seen fewer than this many times — one
@@ -173,7 +195,14 @@ def co_change(repo: Repo, paths: list[str], *, ref: str = "HEAD", days: int = DE
     return result
 
 
-def author_share(repo: Repo, paths: list[str], *, ref: str = "HEAD", days: int = DEFAULT_HISTORY_DAYS, max_commits: int = DEFAULT_MAX_COMMITS) -> dict[str, dict[str, float]]:
+def author_share(
+    repo: Repo,
+    paths: list[str],
+    *,
+    ref: str = "HEAD",
+    days: int = DEFAULT_HISTORY_DAYS,
+    max_commits: int = DEFAULT_MAX_COMMITS,
+) -> dict[str, dict[str, float]]:
     """Fraction of commits per author for each path.
 
     :returns: path -> {author email: share in 0.0-1.0}. A path with a single
@@ -213,7 +242,9 @@ def last_modified(repo: Repo, paths: list[str], *, ref: str = "HEAD") -> dict[st
 # --------------------------------------------------------------------- internals
 
 
-def _walk(repo: Repo, *, ref: str, days: int, max_commits: int) -> list[tuple[str, str, str, list[str]]]:
+def _walk(
+    repo: Repo, *, ref: str, days: int, max_commits: int
+) -> list[tuple[str, str, str, list[str]]]:
     """Run the one bounded ``git log`` and return parsed commit records.
 
     :returns: ``(sha, author_email, author_date, files)`` per commit, newest

@@ -67,7 +67,9 @@ from mergesignal.models import (
 NAME = "semantic"
 
 #: Names too generic to attribute confidently across files.
-COMMON_NAMES: frozenset[str] = frozenset({"run", "get", "set", "main", "init", "test", "handle", "name", "value", "data"})
+COMMON_NAMES: frozenset[str] = frozenset(
+    {"run", "get", "set", "main", "init", "test", "handle", "name", "value", "data"}
+)
 
 #: Most reference locations carried in one finding's evidence.
 MAX_EVIDENCE_REFERENCES = 10
@@ -310,7 +312,9 @@ def find_signature_change_new_callers(
             reference
             for reference in by_name.get(symbol.name, ())
             if not _inside_definition(reference, change)
-            and (not known_added or reference.line in (added_lines or {}).get(reference.file, set()))
+            and (
+                not known_added or reference.line in (added_lines or {}).get(reference.file, set())
+            )
         ]
         if not candidates:
             continue

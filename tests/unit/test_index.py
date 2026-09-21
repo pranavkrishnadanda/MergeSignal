@@ -29,13 +29,7 @@ BASE_SOURCES = {
 }
 
 HEAD_SOURCES = {
-    "lib.py": (
-        "def new_name(x):\n"
-        "    return x\n"
-        "\n"
-        "def compute(a, b, c):\n"
-        "    return a + b + c\n"
-    ),
+    "lib.py": ("def new_name(x):\n    return x\n\ndef compute(a, b, c):\n    return a + b + c\n"),
     "caller.py": "from lib import compute\n\ncompute(1, 2, 3)\n",
 }
 
@@ -159,9 +153,7 @@ def test_diff_symbols_classifies_every_flavour(
 def test_signature_change_carries_both_signatures(
     base_index: SymbolIndex, head_index: SymbolIndex
 ) -> None:
-    change = next(
-        c for c in diff_symbols(base_index, head_index) if c.kind == "signature_changed"
-    )
+    change = next(c for c in diff_symbols(base_index, head_index) if c.kind == "signature_changed")
     assert change.old_signature == "(a)"
     assert change.new_signature == "(a, b, c)"
     assert change.confidence == "high"
@@ -177,9 +169,7 @@ def test_rename_detection_is_a_heuristic_never_high_confidence(
     assert change.confidence in {"low", "medium"}
 
 
-def test_rename_detection_can_be_disabled(
-    base_index: SymbolIndex, head_index: SymbolIndex
-) -> None:
+def test_rename_detection_can_be_disabled(base_index: SymbolIndex, head_index: SymbolIndex) -> None:
     grouped = kinds(diff_symbols(base_index, head_index, detect_renames=False))
     assert "renamed" not in grouped
     assert sorted(grouped["removed"]) == ["doomed", "old_name"]
@@ -248,7 +238,9 @@ def test_changes_are_sorted_deterministically(
 # --------------------------------------------------------- rename candidates
 
 
-def _symbol(name: str, *, file: str = "lib.py", signature: str | None = "(x)", line: int = 1) -> Symbol:
+def _symbol(
+    name: str, *, file: str = "lib.py", signature: str | None = "(x)", line: int = 1
+) -> Symbol:
     return Symbol(name=name, kind="function", file=file, line=line, signature=signature)
 
 

@@ -22,7 +22,11 @@ pytestmark = pytest.mark.integration
 
 #: A file with two declarations far enough apart that editing both ends is a
 #: file-level, not a hunk-level, collision.
-LIB = "def alpha(x):\n    return x\n" + "".join(f"# pad {i}\n" for i in range(38)) + "\ndef beta(y):\n    return y\n"
+LIB = (
+    "def alpha(x):\n    return x\n"
+    + "".join(f"# pad {i}\n" for i in range(38))
+    + "\ndef beta(y):\n    return y\n"
+)
 
 
 def changed_symbols(repo: Repo, base: str, head: str) -> list:
@@ -45,13 +49,18 @@ def branch_diff(repo: Repo, name: str, *, base: str = "main") -> BranchDiff:
     )
 
 
-def context(path: Path, *, head: str = "feature", others: list[str], base: str = "main") -> AnalysisContext:
+def context(
+    path: Path, *, head: str = "feature", others: list[str], base: str = "main"
+) -> AnalysisContext:
     """Candidate context plus the other branches it might collide with."""
     repo = Repo(path)
     candidate = diff_refs(repo, base, head, merge_base=True)
     merge_base = repo.merge_base(base, head)
     paths = index_paths(candidate)
-    changes = diff_symbols(SymbolIndex.from_ref(repo, merge_base or base, paths), SymbolIndex.from_ref(repo, head, paths))
+    changes = diff_symbols(
+        SymbolIndex.from_ref(repo, merge_base or base, paths),
+        SymbolIndex.from_ref(repo, head, paths),
+    )
     return AnalysisContext(
         repo_path=str(path),
         base=base,
@@ -72,13 +81,19 @@ def crowded_repo(builder: RepoBuilder) -> Path:
     # Both edits change alpha's *extent*, which is what the symbol index needs
     # to report a declaration as changed rather than merely re-spelled.
     builder.branch("feature")
-    builder.file("lib.py", LIB.replace("    return x\n", "    doubled = x * 2\n    return doubled\n")).commit("candidate edits alpha")
+    builder.file(
+        "lib.py", LIB.replace("    return x\n", "    doubled = x * 2\n    return doubled\n")
+    ).commit("candidate edits alpha")
 
     builder.checkout("main").branch("rival-symbol")
-    builder.file("lib.py", LIB.replace("    return x\n", "    bumped = x + 100\n    return bumped\n")).commit("rival edits alpha too")
+    builder.file(
+        "lib.py", LIB.replace("    return x\n", "    bumped = x + 100\n    return bumped\n")
+    ).commit("rival edits alpha too")
 
     builder.checkout("main").branch("rival-file")
-    builder.file("lib.py", LIB.replace("    return y\n", "    return y + 1\n")).commit("rival edits beta")
+    builder.file("lib.py", LIB.replace("    return y\n", "    return y + 1\n")).commit(
+        "rival edits beta"
+    )
 
     builder.checkout("main").branch("rival-none")
     builder.file("util.py", "def helper():\n    return 2\n").commit("rival edits util")
@@ -94,7 +109,9 @@ def test_no_other_branches_is_skipped(two_branch_repo: Path) -> None:
 
 
 def test_candidate_against_three_branches(crowded_repo: Path) -> None:
-    signal = overlap.analyze(context(crowded_repo, others=["rival-symbol", "rival-file", "rival-none"]))
+    signal = overlap.analyze(
+        context(crowded_repo, others=["rival-symbol", "rival-file", "rival-none"])
+    )
 
     assert signal.status == "findings"
     assert signal.metadata["compared"] == 3
@@ -134,7 +151,9 @@ def test_rename_versus_edit_of_the_old_path_collides(builder: RepoBuilder) -> No
 def test_unsupported_language_still_overlaps_textually(builder: RepoBuilder) -> None:
     """No grammar, no symbols — file/hunk granularity must still work (FR-5)."""
     builder.file("script.zzz", "BEGIN\n  step one\n  step two\nEND\n").commit("seed")
-    builder.branch("feature").file("script.zzz", "BEGIN\n  step ONE\n  step two\nEND\n").commit("candidate")
+    builder.branch("feature").file("script.zzz", "BEGIN\n  step ONE\n  step two\nEND\n").commit(
+        "candidate"
+    )
     builder.checkout("main").branch("rival")
     builder.file("script.zzz", "BEGIN\n  step 1!\n  step two\nEND\n").commit("rival")
     path = builder.checkout("main").build()

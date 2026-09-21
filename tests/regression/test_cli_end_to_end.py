@@ -52,7 +52,9 @@ def _console_script() -> tuple[list[str], bool]:
     subprocess (and therefore the exit-code contract) in a checkout where the
     package was never installed — just not the entry-point wiring.
     """
-    candidate = Path(sys.executable).parent / ("mergesignal.exe" if os.name == "nt" else "mergesignal")
+    candidate = Path(sys.executable).parent / (
+        "mergesignal.exe" if os.name == "nt" else "mergesignal"
+    )
     if candidate.exists():
         return [str(candidate)], True
     found = shutil.which("mergesignal")
@@ -153,7 +155,15 @@ def test_analyze_emits_a_full_report_as_json(scripted_repo) -> None:
     """The headline case: a real Report on stdout, parseable, with all signals."""
     repo, scenario = scripted_repo("rename_vs_new_caller")
     result = run_cli(
-        "analyze", "--base", scenario.base, "--head", scenario.head, "-C", str(repo), "--format", "json"
+        "analyze",
+        "--base",
+        scenario.base,
+        "--head",
+        scenario.head,
+        "-C",
+        str(repo),
+        "--format",
+        "json",
     )
     report = parse_report(result)
 
@@ -168,7 +178,9 @@ def test_analyze_emits_a_full_report_as_json(scripted_repo) -> None:
     assert statuses(report)["conflicts"] == "ok"
     assert statuses(report)["semantic"] == "findings"
     semantic = next(s for s in report["signals"] if s["name"] == "semantic")
-    assert any(f["evidence"]["pattern"] == "renamed_old_name_referenced" for f in semantic["findings"])
+    assert any(
+        f["evidence"]["pattern"] == "renamed_old_name_referenced" for f in semantic["findings"]
+    )
 
 
 @requires_cli
@@ -186,7 +198,15 @@ def test_analyze_signal_statuses_per_scenario(scripted_repo) -> None:
     for name, wanted in expected.items():
         repo, scenario = scripted_repo(name)
         result = run_cli(
-            "analyze", "--base", scenario.base, "--head", scenario.head, "-C", str(repo), "--format", "json"
+            "analyze",
+            "--base",
+            scenario.base,
+            "--head",
+            scenario.head,
+            "-C",
+            str(repo),
+            "--format",
+            "json",
         )
         actual = statuses(parse_report(result))
         assert actual | wanted == actual, f"{name}: expected {wanted}, got {actual}"
@@ -198,8 +218,17 @@ def test_analyze_overlap_against_local_branches(scripted_repo) -> None:
     """``--branches`` reaches S3 through the real argument parsing."""
     repo, _scenario = scripted_repo("overlap_three_branches")
     result = run_cli(
-        "analyze", "--base", "main", "--head", "feature", "-C", str(repo),
-        "--branches", "peer-symbol,peer-hunk,peer-file", "--format", "json",
+        "analyze",
+        "--base",
+        "main",
+        "--head",
+        "feature",
+        "-C",
+        str(repo),
+        "--branches",
+        "peer-symbol,peer-hunk,peer-file",
+        "--format",
+        "json",
     )
     report = parse_report(result)
     overlap = next(s for s in report["signals"] if s["name"] == "overlap")
@@ -213,7 +242,9 @@ def test_analyze_overlap_against_local_branches(scripted_repo) -> None:
 def test_every_format_renders(scripted_repo, fmt: str) -> None:
     """All three renderers produce non-empty output and no traceback."""
     repo, _ = scripted_repo("textual_conflict")
-    result = run_cli("analyze", "--base", "main", "--head", "feature", "-C", str(repo), "--format", fmt)
+    result = run_cli(
+        "analyze", "--base", "main", "--head", "feature", "-C", str(repo), "--format", fmt
+    )
     assert result.stdout.strip()
     assert "Traceback" not in result.stdout + result.stderr
     assert "settings.conf" in result.stdout
@@ -230,7 +261,9 @@ def test_every_format_renders(scripted_repo, fmt: str) -> None:
 def test_exit_0_when_nothing_reaches_the_threshold(scripted_repo) -> None:
     """Exit 0: clean. Proven on base == head, where there is nothing to find."""
     repo, _ = scripted_repo("empty_diff")
-    result = run_cli("analyze", "--base", "main", "--head", "main", "-C", str(repo), "--format", "json")
+    result = run_cli(
+        "analyze", "--base", "main", "--head", "main", "-C", str(repo), "--format", "json"
+    )
     assert result.returncode == EXIT_CLEAN, result.stdout + result.stderr
     report = parse_report(result)
     assert all(not s["findings"] for s in report["signals"])
@@ -256,7 +289,9 @@ def test_exit_0_when_the_threshold_is_raised_above_the_findings(scripted_repo) -
 def test_exit_1_when_findings_reach_the_threshold(scripted_repo) -> None:
     """Exit 1: a conflict is a ``high`` finding and the default threshold is high."""
     repo, _ = scripted_repo("textual_conflict")
-    result = run_cli("analyze", "--base", "main", "--head", "feature", "-C", str(repo), "--format", "json")
+    result = run_cli(
+        "analyze", "--base", "main", "--head", "feature", "-C", str(repo), "--format", "json"
+    )
     assert result.returncode == EXIT_FINDINGS, result.stdout + result.stderr
     report = parse_report(result)
     conflicts = next(s for s in report["signals"] if s["name"] == "conflicts")
@@ -301,8 +336,17 @@ def test_json_mode_keeps_stdout_pure(scripted_repo) -> None:
     """
     repo, _ = scripted_repo("clean_merge")
     result = run_cli(
-        "analyze", "--base", "main", "--head", "feature", "-C", str(repo),
-        "--branches", "ghost-branch", "--format", "json",
+        "analyze",
+        "--base",
+        "main",
+        "--head",
+        "feature",
+        "-C",
+        str(repo),
+        "--branches",
+        "ghost-branch",
+        "--format",
+        "json",
     )
     assert "ghost-branch" in result.stderr
     report = parse_report(result)  # would fail if the warning polluted stdout
@@ -319,7 +363,9 @@ def test_analyze_runs_on_mergesignal_itself() -> None:
     repository's history happens to be.
     """
     repo_root = Path(__file__).resolve().parents[2]
-    result = run_cli("analyze", "--base", "HEAD", "--head", "HEAD", "-C", str(repo_root), "--format", "json")
+    result = run_cli(
+        "analyze", "--base", "HEAD", "--head", "HEAD", "-C", str(repo_root), "--format", "json"
+    )
     assert result.returncode in (EXIT_CLEAN, EXIT_FINDINGS), result.stderr
     report = parse_report(result)
     assert [s["name"] for s in report["signals"]] == list(SIGNAL_NAMES)

@@ -59,7 +59,9 @@ def test_analyze_renders_report(diverged: Path) -> None:
     On the clean-merge scenario the risk engine emits a ``high`` finding, which
     is exactly the default severity threshold, so FR-7 makes this run exit 1.
     """
-    result = runner.invoke(app, ["analyze", "--base", "main", "--head", "feature", "-C", str(diverged)])
+    result = runner.invoke(
+        app, ["analyze", "--base", "main", "--head", "feature", "-C", str(diverged)]
+    )
     assert result.exit_code == EXIT_FINDINGS, result.stdout
     assert "MergeSignal report" in result.stdout
     for name in SIGNAL_NAMES:
@@ -71,7 +73,20 @@ def test_analyze_renders_report(diverged: Path) -> None:
 
 def test_analyze_exits_clean_when_no_finding_reaches_the_threshold(diverged: Path) -> None:
     """Same repository, threshold raised above the worst finding: FR-7 exit 0."""
-    result = runner.invoke(app, ["analyze", "--base", "main", "--head", "feature", "-C", str(diverged), "--threshold", "critical"])
+    result = runner.invoke(
+        app,
+        [
+            "analyze",
+            "--base",
+            "main",
+            "--head",
+            "feature",
+            "-C",
+            str(diverged),
+            "--threshold",
+            "critical",
+        ],
+    )
     assert result.exit_code == EXIT_CLEAN, result.stdout
     # The findings are still reported — they just are not fatal any more.
     assert "risk" in result.stdout
@@ -85,7 +100,9 @@ def test_analyze_exits_error_when_an_engine_fails(monkeypatch, diverged: Path) -
         raise RuntimeError("engine exploded")
 
     monkeypatch.setitem(signals.REGISTRY, "semantic", boom)
-    result = runner.invoke(app, ["analyze", "--base", "main", "--head", "feature", "-C", str(diverged)])
+    result = runner.invoke(
+        app, ["analyze", "--base", "main", "--head", "feature", "-C", str(diverged)]
+    )
     assert result.exit_code == EXIT_ERROR, result.stdout
     assert "RuntimeError: engine exploded" in result.stdout
     # The rest of the report still renders: one bad engine must not lose it.
@@ -95,7 +112,10 @@ def test_analyze_exits_error_when_an_engine_fails(monkeypatch, diverged: Path) -
 
 def test_analyze_json_output_is_parseable(diverged: Path) -> None:
     """``--format json`` emits Report JSON with the real per-signal statuses."""
-    result = runner.invoke(app, ["analyze", "--base", "main", "--head", "feature", "-C", str(diverged), "--format", "json"])
+    result = runner.invoke(
+        app,
+        ["analyze", "--base", "main", "--head", "feature", "-C", str(diverged), "--format", "json"],
+    )
     assert result.exit_code == EXIT_FINDINGS, result.stdout
     payload = json.loads(result.stdout)
     assert payload["base"] == "main"
@@ -118,7 +138,22 @@ def test_analyze_json_output_is_parseable(diverged: Path) -> None:
 
 
 def test_analyze_respects_signal_selection(diverged: Path) -> None:
-    result = runner.invoke(app, ["analyze", "--base", "main", "--head", "feature", "-C", str(diverged), "--format", "json", "--signal", "risk"])
+    result = runner.invoke(
+        app,
+        [
+            "analyze",
+            "--base",
+            "main",
+            "--head",
+            "feature",
+            "-C",
+            str(diverged),
+            "--format",
+            "json",
+            "--signal",
+            "risk",
+        ],
+    )
     payload = json.loads(result.stdout)
     assert [s["name"] for s in payload["signals"]] == ["risk"]
 
@@ -136,7 +171,9 @@ def test_analyze_rejects_unknown_format(diverged: Path) -> None:
 
 
 def test_analyze_rejects_unknown_ref(diverged: Path) -> None:
-    result = runner.invoke(app, ["analyze", "--base", "main", "--head", "ghost", "-C", str(diverged)])
+    result = runner.invoke(
+        app, ["analyze", "--base", "main", "--head", "ghost", "-C", str(diverged)]
+    )
     assert result.exit_code == EXIT_ERROR
     assert "ghost" in result.output
 
@@ -201,7 +238,9 @@ class TestPipeline:
     def test_run_signal_converts_arbitrary_exceptions(self, monkeypatch, make_context) -> None:
         from mergesignal import signals
 
-        monkeypatch.setitem(signals.REGISTRY, "risk", lambda ctx: (_ for _ in ()).throw(ValueError("boom")))
+        monkeypatch.setitem(
+            signals.REGISTRY, "risk", lambda ctx: (_ for _ in ()).throw(ValueError("boom"))
+        )
         signal = run_signal("risk", make_context())
         assert signal.status == "error"
         assert "ValueError: boom" in signal.summary
@@ -217,7 +256,12 @@ class TestPipeline:
     def test_run_pipeline_lifts_risk_score(self, monkeypatch, make_context) -> None:
         from mergesignal import signals
 
-        score = {"score": 42.0, "level": "medium", "factors": {"churn": 0.4}, "weights": {"churn": 1.0}}
+        score = {
+            "score": 42.0,
+            "level": "medium",
+            "factors": {"churn": 0.4},
+            "weights": {"churn": 1.0},
+        }
         monkeypatch.setitem(
             signals.REGISTRY,
             "risk",
@@ -253,5 +297,7 @@ class TestExitCodes:
         assert exit_code_for(report, "low") == EXIT_ERROR
 
     def test_skipped_is_clean(self) -> None:
-        report = self._report(Signal(name="overlap", status="skipped", summary="nothing to compare"))
+        report = self._report(
+            Signal(name="overlap", status="skipped", summary="nothing to compare")
+        )
         assert exit_code_for(report, "low") == EXIT_CLEAN

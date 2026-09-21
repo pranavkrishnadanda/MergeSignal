@@ -24,9 +24,26 @@ from mergesignal.models import (
 from mergesignal.signals import semantic
 
 
-def symbol(name: str = "helper", *, file: str = "lib.py", line: int = 10, end_line: int | None = 14, kind: str = "function", signature: str | None = "(a)", parent: str | None = None) -> Symbol:
+def symbol(
+    name: str = "helper",
+    *,
+    file: str = "lib.py",
+    line: int = 10,
+    end_line: int | None = 14,
+    kind: str = "function",
+    signature: str | None = "(a)",
+    parent: str | None = None,
+) -> Symbol:
     """Build a :class:`~mergesignal.models.Symbol`."""
-    return Symbol(name=name, kind=kind, file=file, line=line, end_line=end_line, signature=signature, parent=parent)  # type: ignore[arg-type]
+    return Symbol(
+        name=name,
+        kind=kind,
+        file=file,
+        line=line,
+        end_line=end_line,
+        signature=signature,
+        parent=parent,
+    )  # type: ignore[arg-type]
 
 
 def removed(name: str = "helper", **kwargs: object) -> SymbolChange:
@@ -37,15 +54,26 @@ def removed(name: str = "helper", **kwargs: object) -> SymbolChange:
 
 def renamed(new: str = "new_name", old: str = "old_name", **kwargs: object) -> SymbolChange:
     """A ``renamed`` :class:`~mergesignal.models.SymbolChange`."""
-    return SymbolChange(symbol=symbol(new, **kwargs), kind="renamed", old_name=old, confidence="medium")  # type: ignore[arg-type]
+    return SymbolChange(
+        symbol=symbol(new, **kwargs), kind="renamed", old_name=old, confidence="medium"
+    )  # type: ignore[arg-type]
 
 
-def signature_changed(name: str = "compute", *, old: str = "(a)", new: str = "(a, b)", **kwargs: object) -> SymbolChange:
+def signature_changed(
+    name: str = "compute", *, old: str = "(a)", new: str = "(a, b)", **kwargs: object
+) -> SymbolChange:
     """A ``signature_changed`` :class:`~mergesignal.models.SymbolChange`."""
-    return SymbolChange(symbol=symbol(name, signature=new, **kwargs), kind="signature_changed", old_signature=old, new_signature=new)  # type: ignore[arg-type]
+    return SymbolChange(
+        symbol=symbol(name, signature=new, **kwargs),
+        kind="signature_changed",
+        old_signature=old,
+        new_signature=new,
+    )  # type: ignore[arg-type]
 
 
-def reference(name: str = "helper", *, file: str = "caller.py", line: int = 3, context: str = "helper(1)") -> Reference:
+def reference(
+    name: str = "helper", *, file: str = "caller.py", line: int = 3, context: str = "helper(1)"
+) -> Reference:
     """Build a :class:`~mergesignal.models.Reference`."""
     return Reference(name=name, file=file, line=line, context=context)
 
@@ -81,7 +109,9 @@ def test_skips_when_no_symbols_indexed(make_context: Callable[..., AnalysisConte
     assert "no symbols" in signal.summary
 
 
-def test_skips_unsupported_language_rather_than_claiming_ok(make_context: Callable[..., AnalysisContext]) -> None:
+def test_skips_unsupported_language_rather_than_claiming_ok(
+    make_context: Callable[..., AnalysisContext],
+) -> None:
     ctx = make_context(head_diff=diff_with(("script.zzz", 1, 3), language=None))
 
     signal = semantic.analyze(ctx)
@@ -92,7 +122,10 @@ def test_skips_unsupported_language_rather_than_claiming_ok(make_context: Callab
 
 
 def test_skips_empty_diff(make_context: Callable[..., AnalysisContext]) -> None:
-    ctx = make_context(base_diff=Diff(base="main", head="main", files=[]), head_diff=Diff(base="main", head="main", files=[]))
+    ctx = make_context(
+        base_diff=Diff(base="main", head="main", files=[]),
+        head_diff=Diff(base="main", head="main", files=[]),
+    )
 
     signal = semantic.analyze(ctx)
 
@@ -100,7 +133,9 @@ def test_skips_empty_diff(make_context: Callable[..., AnalysisContext]) -> None:
     assert "empty diff" in signal.summary
 
 
-def test_reports_ok_when_indexed_but_nothing_breaks(make_context: Callable[..., AnalysisContext]) -> None:
+def test_reports_ok_when_indexed_but_nothing_breaks(
+    make_context: Callable[..., AnalysisContext],
+) -> None:
     ctx = make_context(
         head_diff=diff_with(("lib.py", 1, 3)),
         head_symbols=[symbol("helper")],
@@ -114,8 +149,12 @@ def test_reports_ok_when_indexed_but_nothing_breaks(make_context: Callable[..., 
     assert signal.summary == "no semantic breakage detected"
 
 
-def test_never_raises(monkeypatch: pytest.MonkeyPatch, make_context: Callable[..., AnalysisContext]) -> None:
-    monkeypatch.setattr(semantic, "_analyze", lambda _ctx: (_ for _ in ()).throw(RuntimeError("boom")))
+def test_never_raises(
+    monkeypatch: pytest.MonkeyPatch, make_context: Callable[..., AnalysisContext]
+) -> None:
+    monkeypatch.setattr(
+        semantic, "_analyze", lambda _ctx: (_ for _ in ()).throw(RuntimeError("boom"))
+    )
 
     signal = semantic.analyze(make_context())
 
@@ -126,7 +165,9 @@ def test_never_raises(monkeypatch: pytest.MonkeyPatch, make_context: Callable[..
 # ------------------------------------------- removed symbol still referenced
 
 
-def test_removed_same_file_reference_is_critical(make_context: Callable[..., AnalysisContext]) -> None:
+def test_removed_same_file_reference_is_critical(
+    make_context: Callable[..., AnalysisContext],
+) -> None:
     ctx = make_context(
         head_diff=diff_with(("lib.py", 1, 3)),
         head_symbols=[symbol("helper")],
@@ -142,13 +183,23 @@ def test_removed_same_file_reference_is_critical(make_context: Callable[..., Ana
     assert finding.evidence["pattern"] == semantic.PATTERN_REMOVED
     assert finding.evidence["changed_side"] == "head"
     assert finding.evidence["reference_side"] == "base"
-    assert finding.evidence["definition"] == {"file": "lib.py", "line": 10, "end_line": 14, "signature": "(a)", "parent": None}
-    assert finding.evidence["references"] == [{"file": "lib.py", "line": 40, "context": "helper(1)"}]
+    assert finding.evidence["definition"] == {
+        "file": "lib.py",
+        "line": 10,
+        "end_line": 14,
+        "signature": "(a)",
+        "parent": None,
+    }
+    assert finding.evidence["references"] == [
+        {"file": "lib.py", "line": 40, "context": "helper(1)"}
+    ]
     assert finding.file == "lib.py"
     assert finding.line == 40
 
 
-def test_removed_cross_file_same_package_is_medium_confidence(make_context: Callable[..., AnalysisContext]) -> None:
+def test_removed_cross_file_same_package_is_medium_confidence(
+    make_context: Callable[..., AnalysisContext],
+) -> None:
     ctx = make_context(
         head_diff=diff_with(("pkg/lib.py", 1, 3)),
         head_symbols=[symbol("helper")],
@@ -162,7 +213,9 @@ def test_removed_cross_file_same_package_is_medium_confidence(make_context: Call
     assert finding.severity == "high"
 
 
-def test_removed_far_away_reference_is_low_confidence(make_context: Callable[..., AnalysisContext]) -> None:
+def test_removed_far_away_reference_is_low_confidence(
+    make_context: Callable[..., AnalysisContext],
+) -> None:
     ctx = make_context(
         head_diff=diff_with(("pkg/lib.py", 1, 3)),
         head_symbols=[symbol("helper")],
@@ -176,7 +229,9 @@ def test_removed_far_away_reference_is_low_confidence(make_context: Callable[...
     assert finding.severity == "high"
 
 
-def test_common_names_never_claim_high_confidence(make_context: Callable[..., AnalysisContext]) -> None:
+def test_common_names_never_claim_high_confidence(
+    make_context: Callable[..., AnalysisContext],
+) -> None:
     ctx = make_context(
         head_diff=diff_with(("lib.py", 1, 3)),
         head_symbols=[symbol("run")],
@@ -189,18 +244,24 @@ def test_common_names_never_claim_high_confidence(make_context: Callable[..., An
     assert finding.confidence == "low"
 
 
-def test_references_inside_the_removed_body_are_ignored(make_context: Callable[..., AnalysisContext]) -> None:
+def test_references_inside_the_removed_body_are_ignored(
+    make_context: Callable[..., AnalysisContext],
+) -> None:
     ctx = make_context(
         head_diff=diff_with(("lib.py", 1, 3)),
         head_symbols=[symbol("helper")],
         head_changes=[removed("helper", file="lib.py", line=10, end_line=14)],
-        base_references=[reference("helper", file="lib.py", line=12, context="return helper(n - 1)")],
+        base_references=[
+            reference("helper", file="lib.py", line=12, context="return helper(n - 1)")
+        ],
     )
 
     assert semantic.analyze(ctx).findings == []
 
 
-def test_reference_side_redeclaring_the_name_suppresses_the_finding(make_context: Callable[..., AnalysisContext]) -> None:
+def test_reference_side_redeclaring_the_name_suppresses_the_finding(
+    make_context: Callable[..., AnalysisContext],
+) -> None:
     ctx = make_context(
         head_diff=diff_with(("lib.py", 1, 3)),
         head_symbols=[symbol("helper")],
@@ -212,25 +273,38 @@ def test_reference_side_redeclaring_the_name_suppresses_the_finding(make_context
     assert semantic.analyze(ctx).findings == []
 
 
-def test_import_declarations_do_not_count_as_a_redeclaration(make_context: Callable[..., AnalysisContext]) -> None:
+def test_import_declarations_do_not_count_as_a_redeclaration(
+    make_context: Callable[..., AnalysisContext],
+) -> None:
     """Importing a name is a usage; it cannot rescue a definition removed elsewhere."""
     ctx = make_context(
         head_diff=diff_with(("lib.py", 1, 3)),
         head_symbols=[symbol("helper")],
         head_changes=[removed("helper", file="lib.py")],
-        base_references=[reference("helper", file="caller.py", line=1, context="from lib import helper")],
-        base_changes=[SymbolChange(symbol=symbol("helper", file="lib.py", kind="import", signature=None), kind="added")],
+        base_references=[
+            reference("helper", file="caller.py", line=1, context="from lib import helper")
+        ],
+        base_changes=[
+            SymbolChange(
+                symbol=symbol("helper", file="lib.py", kind="import", signature=None), kind="added"
+            )
+        ],
     )
 
     assert len(semantic.analyze(ctx).findings) == 1
 
 
-def test_removed_import_only_matters_in_its_own_file(make_context: Callable[..., AnalysisContext]) -> None:
+def test_removed_import_only_matters_in_its_own_file(
+    make_context: Callable[..., AnalysisContext],
+) -> None:
     ctx = make_context(
         head_diff=diff_with(("lib.py", 1, 3)),
         head_symbols=[symbol("helper")],
         head_changes=[removed("os", file="lib.py", kind="import", signature=None, end_line=None)],
-        base_references=[reference("os", file="other.py", line=5), reference("os", file="lib.py", line=99)],
+        base_references=[
+            reference("os", file="other.py", line=5),
+            reference("os", file="lib.py", line=99),
+        ],
     )
 
     (finding,) = semantic.analyze(ctx).findings
@@ -275,7 +349,9 @@ def test_renamed_old_name_referenced(make_context: Callable[..., AnalysisContext
     assert finding.evidence["new_name"] == "new_name"
 
 
-def test_rename_confidence_is_capped_at_medium(make_context: Callable[..., AnalysisContext]) -> None:
+def test_rename_confidence_is_capped_at_medium(
+    make_context: Callable[..., AnalysisContext],
+) -> None:
     """Even a same-file reference cannot make a heuristic rename claim 'high'."""
     ctx = make_context(
         head_diff=diff_with(("lib.py", 1, 3)),
@@ -289,8 +365,15 @@ def test_rename_confidence_is_capped_at_medium(make_context: Callable[..., Analy
     assert finding.confidence == "medium"
 
 
-def test_rename_with_low_confidence_detection_stays_low(make_context: Callable[..., AnalysisContext]) -> None:
-    change = SymbolChange(symbol=symbol("new_name", file="lib.py"), kind="renamed", old_name="old_name", confidence="low")
+def test_rename_with_low_confidence_detection_stays_low(
+    make_context: Callable[..., AnalysisContext],
+) -> None:
+    change = SymbolChange(
+        symbol=symbol("new_name", file="lib.py"),
+        kind="renamed",
+        old_name="old_name",
+        confidence="low",
+    )
     ctx = make_context(
         head_diff=diff_with(("lib.py", 1, 3)),
         head_symbols=[symbol("new_name")],
@@ -303,7 +386,9 @@ def test_rename_with_low_confidence_detection_stays_low(make_context: Callable[.
     assert finding.confidence == "low"
 
 
-def test_rename_without_references_to_the_old_name_is_quiet(make_context: Callable[..., AnalysisContext]) -> None:
+def test_rename_without_references_to_the_old_name_is_quiet(
+    make_context: Callable[..., AnalysisContext],
+) -> None:
     ctx = make_context(
         head_diff=diff_with(("lib.py", 1, 3)),
         head_symbols=[symbol("new_name")],
@@ -317,7 +402,9 @@ def test_rename_without_references_to_the_old_name_is_quiet(make_context: Callab
 # --------------------------------------------- signature change new callers
 
 
-def test_signature_change_with_added_caller_is_high(make_context: Callable[..., AnalysisContext]) -> None:
+def test_signature_change_with_added_caller_is_high(
+    make_context: Callable[..., AnalysisContext],
+) -> None:
     ctx = make_context(
         base_diff=diff_with(("caller.py", 1, 5)),
         head_diff=diff_with(("lib.py", 1, 3)),
@@ -337,7 +424,9 @@ def test_signature_change_with_added_caller_is_high(make_context: Callable[..., 
     assert finding.evidence["new_signature"] == "(a, b)"
 
 
-def test_pre_existing_callers_are_not_reported(make_context: Callable[..., AnalysisContext]) -> None:
+def test_pre_existing_callers_are_not_reported(
+    make_context: Callable[..., AnalysisContext],
+) -> None:
     """Line 99 is outside the lines the referencing side added, so it is theirs to own."""
     ctx = make_context(
         base_diff=diff_with(("caller.py", 1, 5)),
@@ -350,7 +439,9 @@ def test_pre_existing_callers_are_not_reported(make_context: Callable[..., Analy
     assert semantic.analyze(ctx).findings == []
 
 
-def test_signature_change_without_arity_change_is_medium(make_context: Callable[..., AnalysisContext]) -> None:
+def test_signature_change_without_arity_change_is_medium(
+    make_context: Callable[..., AnalysisContext],
+) -> None:
     ctx = make_context(
         base_diff=diff_with(("caller.py", 1, 5)),
         head_diff=diff_with(("lib.py", 1, 3)),
@@ -366,7 +457,9 @@ def test_signature_change_without_arity_change_is_medium(make_context: Callable[
     assert finding.evidence["arity_changed"] is False
 
 
-def test_unknown_signatures_lower_confidence_rather_than_claiming_no_change(make_context: Callable[..., AnalysisContext]) -> None:
+def test_unknown_signatures_lower_confidence_rather_than_claiming_no_change(
+    make_context: Callable[..., AnalysisContext],
+) -> None:
     change = SymbolChange(
         symbol=symbol("compute", file="lib.java", signature=None),
         kind="signature_changed",
@@ -388,7 +481,9 @@ def test_unknown_signatures_lower_confidence_rather_than_claiming_no_change(make
     assert finding.severity == "medium"
 
 
-def test_missing_diff_means_added_callers_cannot_be_distinguished(make_context: Callable[..., AnalysisContext]) -> None:
+def test_missing_diff_means_added_callers_cannot_be_distinguished(
+    make_context: Callable[..., AnalysisContext],
+) -> None:
     """Without the referencing side's diff we report, but say so and cap confidence."""
     ctx = make_context(
         head_diff=diff_with(("lib.py", 1, 3)),
@@ -406,7 +501,9 @@ def test_missing_diff_means_added_callers_cannot_be_distinguished(make_context: 
 # --------------------------------------------------------- grouping & helpers
 
 
-def test_many_references_collapse_into_one_finding(make_context: Callable[..., AnalysisContext]) -> None:
+def test_many_references_collapse_into_one_finding(
+    make_context: Callable[..., AnalysisContext],
+) -> None:
     refs = [reference("helper", file=f"m{i}.py", line=i + 1) for i in range(15)]
     ctx = make_context(
         head_diff=diff_with(("lib.py", 1, 3)),
@@ -441,7 +538,14 @@ def test_arity_changed(old: str | None, new: str | None, expected: bool | None) 
 
 @pytest.mark.parametrize(
     ("signature", "expected"),
-    [("()", []), ("(a)", ["a"]), ("(a, b)", ["a", "b"]), ("(self, x=1)", ["self", "x=1"]), (None, None), ("x", None)],
+    [
+        ("()", []),
+        ("(a)", ["a"]),
+        ("(a, b)", ["a", "b"]),
+        ("(self, x=1)", ["self", "x=1"]),
+        (None, None),
+        ("x", None),
+    ],
 )
 def test_parameter_list(signature: str | None, expected: list[str] | None) -> None:
     assert semantic.parameter_list(signature) == expected

@@ -36,7 +36,11 @@ def pull_json(number: int = 7, **overrides: Any) -> dict[str, Any]:
         "html_url": f"https://github.com/{SLUG}/pull/{number}",
         "user": {"login": "octocat"},
         "base": {"ref": "main"},
-        "head": {"ref": f"feature-{number}", "sha": "a" * 40, "repo": {"full_name": SLUG, "clone_url": f"https://github.com/{SLUG}.git"}},
+        "head": {
+            "ref": f"feature-{number}",
+            "sha": "a" * 40,
+            "repo": {"full_name": SLUG, "clone_url": f"https://github.com/{SLUG}.git"},
+        },
     }
     data.update(overrides)
     return data
@@ -153,7 +157,17 @@ def test_get_pull_maps_the_fields() -> None:
 
 
 def test_get_pull_records_a_fork_clone_url() -> None:
-    forked = pull_json(3, head={"ref": "main", "sha": "b" * 40, "repo": {"full_name": "someone/widgets", "clone_url": "https://github.com/someone/widgets.git"}})
+    forked = pull_json(
+        3,
+        head={
+            "ref": "main",
+            "sha": "b" * 40,
+            "repo": {
+                "full_name": "someone/widgets",
+                "clone_url": "https://github.com/someone/widgets.git",
+            },
+        },
+    )
     with client_for(lambda r: httpx.Response(200, json=forked)) as client:
         pull = client.get_pull(3)
     assert pull.head_repo_clone_url == "https://github.com/someone/widgets.git"
@@ -168,7 +182,10 @@ def test_get_pull_survives_a_deleted_fork() -> None:
 
 
 def test_get_pull_404_raises_github_error() -> None:
-    with client_for(lambda r: httpx.Response(404, json={"message": "Not Found"})) as client, pytest.raises(GitHubError) as exc_info:
+    with (
+        client_for(lambda r: httpx.Response(404, json={"message": "Not Found"})) as client,
+        pytest.raises(GitHubError) as exc_info,
+    ):
         client.get_pull(99)
     assert exc_info.value.status_code == 404
     assert "Not Found" in str(exc_info.value)
@@ -176,7 +193,9 @@ def test_get_pull_404_raises_github_error() -> None:
 
 def test_rate_limit_403_explains_itself() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(403, json={"message": "API rate limit exceeded"}, headers={"X-RateLimit-Remaining": "0"})
+        return httpx.Response(
+            403, json={"message": "API rate limit exceeded"}, headers={"X-RateLimit-Remaining": "0"}
+        )
 
     with client_for(handler) as client, pytest.raises(GitHubError, match="rate limited"):
         client.get_pull(1)
@@ -198,7 +217,9 @@ def test_list_open_pulls_filters_drafts_and_passes_base() -> None:
 
 
 def test_list_open_pulls_can_include_drafts() -> None:
-    with client_for(lambda r: httpx.Response(200, json=[pull_json(1), pull_json(2, draft=True)])) as client:
+    with client_for(
+        lambda r: httpx.Response(200, json=[pull_json(1), pull_json(2, draft=True)])
+    ) as client:
         pulls = client.list_open_pulls(include_drafts=True)
     assert [p.number for p in pulls] == [1, 2]
 
@@ -209,7 +230,9 @@ def test_list_open_pulls_follows_pagination() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.params.get("page") == "2":
             return httpx.Response(200, json=[pull_json(3)])
-        return httpx.Response(200, json=[pull_json(1), pull_json(2)], headers={"Link": f'<{page_two}>; rel="next"'})
+        return httpx.Response(
+            200, json=[pull_json(1), pull_json(2)], headers={"Link": f'<{page_two}>; rel="next"'}
+        )
 
     with client_for(handler) as client:
         pulls = client.list_open_pulls(limit=10)
@@ -229,7 +252,12 @@ def test_list_open_pulls_honours_the_limit() -> None:
 
 
 def _comment(comment_id: int, body: str, login: str = "mergesignal[bot]") -> dict[str, Any]:
-    return {"id": comment_id, "body": body, "user": {"login": login}, "created_at": f"2024-01-0{comment_id}T00:00:00Z"}
+    return {
+        "id": comment_id,
+        "body": body,
+        "user": {"login": login},
+        "created_at": f"2024-01-0{comment_id}T00:00:00Z",
+    }
 
 
 def test_upsert_report_comment_creates_when_absent(make_report: Callable[..., Report]) -> None:
@@ -251,14 +279,22 @@ def test_upsert_report_comment_creates_when_absent(make_report: Callable[..., Re
     ]
 
 
-def test_upsert_report_comment_updates_the_marked_comment(make_report: Callable[..., Report]) -> None:
+def test_upsert_report_comment_updates_the_marked_comment(
+    make_report: Callable[..., Report],
+) -> None:
     bodies: list[str] = []
     calls: list[tuple[str, str]] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         calls.append((request.method, request.url.path))
         if request.method == "GET":
-            return httpx.Response(200, json=[_comment(1, "unrelated chatter", "human"), _comment(42, f"old report\n{COMMENT_MARKER}\n")])
+            return httpx.Response(
+                200,
+                json=[
+                    _comment(1, "unrelated chatter", "human"),
+                    _comment(42, f"old report\n{COMMENT_MARKER}\n"),
+                ],
+            )
         bodies.append(request.read().decode())
         return httpx.Response(200, json={"id": 42})
 
@@ -266,7 +302,9 @@ def test_upsert_report_comment_updates_the_marked_comment(make_report: Callable[
         result = client.upsert_report_comment(7, make_report())
 
     assert result["id"] == 42
-    assert calls[-1] == ("PATCH", f"/repos/{SLUG}/issues/comments/42"), "an existing report must be PATCHed, never duplicated"
+    assert calls[-1] == ("PATCH", f"/repos/{SLUG}/issues/comments/42"), (
+        "an existing report must be PATCHed, never duplicated"
+    )
     assert COMMENT_MARKER in bodies[0], "the marker must survive the update or idempotency breaks"
 
 
@@ -277,7 +315,9 @@ def test_upsert_report_comment_respects_bot_login(make_report: Callable[..., Rep
     def handler(request: httpx.Request) -> httpx.Response:
         calls.append((request.method, request.url.path))
         if request.method == "GET":
-            return httpx.Response(200, json=[_comment(9, f"> quoting you\n{COMMENT_MARKER}", login="impostor")])
+            return httpx.Response(
+                200, json=[_comment(9, f"> quoting you\n{COMMENT_MARKER}", login="impostor")]
+            )
         return httpx.Response(201, json={"id": 10})
 
     with client_for(handler) as client:
@@ -287,7 +327,10 @@ def test_upsert_report_comment_respects_bot_login(make_report: Callable[..., Rep
 
 
 def test_upsert_comment_refuses_an_unmarked_body() -> None:
-    with client_for(lambda r: httpx.Response(200, json=[])) as client, pytest.raises(ValueError, match="marker"):
+    with (
+        client_for(lambda r: httpx.Response(200, json=[])) as client,
+        pytest.raises(ValueError, match="marker"),
+    ):
         client.upsert_comment(7, "no marker here")
 
 
@@ -306,7 +349,9 @@ def test_check_run_conclusion_mapping(make_finding: Callable[..., Finding]) -> N
     bad = Report(
         base="main",
         head="feature",
-        signals=[Signal(name="semantic", status="findings", findings=[make_finding(severity="critical")])],
+        signals=[
+            Signal(name="semantic", status="findings", findings=[make_finding(severity="critical")])
+        ],
     )
 
     assert check_run_conclusion(clean) == "success"
@@ -384,7 +429,15 @@ def test_slug_from_remote(remote: str, expected: str) -> None:
 
 @pytest.mark.parametrize(
     "remote",
-    ["", "   ", "not a url", "https://github.com/acme", "https://github.com/a/b/c", "/local/path/repo.git", "file:///tmp/repo"],
+    [
+        "",
+        "   ",
+        "not a url",
+        "https://github.com/acme",
+        "https://github.com/a/b/c",
+        "/local/path/repo.git",
+        "file:///tmp/repo",
+    ],
 )
 def test_slug_from_remote_rejects_the_unrecognisable(remote: str) -> None:
     assert slug_from_remote(remote) is None

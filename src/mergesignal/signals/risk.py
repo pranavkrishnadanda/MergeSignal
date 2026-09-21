@@ -221,7 +221,9 @@ def _churn_factor(ctx: AnalysisContext, stats: Any | None) -> tuple[float | None
     return (value, evidence)
 
 
-def _co_change_factor(ctx: AnalysisContext, stats: Any | None) -> tuple[float | None, dict[str, Any]]:
+def _co_change_factor(
+    ctx: AnalysisContext, stats: Any | None
+) -> tuple[float | None, dict[str, Any]]:
     """Coupling factor plus the coupled-but-absent partners it found."""
     if stats is None or stats.commits_scanned == 0:
         return (None, {})
@@ -277,7 +279,9 @@ def _hot_paths_factor(ctx: AnalysisContext) -> tuple[float | None, dict[str, Any
     return (value, evidence)
 
 
-def _test_coverage_factor(ctx: AnalysisContext, tree: set[str] | None) -> tuple[float | None, dict[str, Any]]:
+def _test_coverage_factor(
+    ctx: AnalysisContext, tree: set[str] | None
+) -> tuple[float | None, dict[str, Any]]:
     """Test-proxy factor plus per-file verdicts.
 
     Each changed source file scores ``0.0`` when a plausible test path is in the
@@ -291,7 +295,10 @@ def _test_coverage_factor(ctx: AnalysisContext, tree: set[str] | None) -> tuple[
     sources = [
         changed
         for changed in diff.files
-        if not changed.is_binary and not changed.is_deleted and changed.language and not is_test_path(changed.path)
+        if not changed.is_binary
+        and not changed.is_deleted
+        and changed.language
+        and not is_test_path(changed.path)
     ]
     if not sources:
         return (None, {})
@@ -368,7 +375,9 @@ def build_score(factors: dict[str, float], weights: dict[str, float]) -> RiskSco
     )
 
 
-def finding_for_factor(name: str, value: float, weight: float, detail: str, evidence: dict) -> Finding:
+def finding_for_factor(
+    name: str, value: float, weight: float, detail: str, evidence: dict
+) -> Finding:
     """One explainability finding per contributing factor.
 
     Severity is ``low`` below 0.5, ``medium`` below 0.8, ``high`` above — a
@@ -426,11 +435,18 @@ def test_path_candidates(path: str) -> list[str]:
     elif extension == ".java":
         candidates += [joined(directory, f"{stem}Test.java")]
         if "src/main/java" in path:
-            candidates.append(path.replace("src/main/java", "src/test/java").replace(f"{stem}.java", f"{stem}Test.java"))
+            candidates.append(
+                path.replace("src/main/java", "src/test/java").replace(
+                    f"{stem}.java", f"{stem}Test.java"
+                )
+            )
     elif extension == ".rs":
         candidates += [joined(directory, f"{stem}_test.rs"), joined("tests", f"{stem}.rs")]
     else:
-        candidates += [joined(directory, f"test_{stem}{extension}"), joined(directory, f"{stem}_test{extension}")]
+        candidates += [
+            joined(directory, f"test_{stem}{extension}"),
+            joined(directory, f"{stem}_test{extension}"),
+        ]
 
     if extension not in (".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"):
         return _unique_candidates(candidates, path)
@@ -525,7 +541,11 @@ def _repo(ctx: AnalysisContext) -> Any | None:
 
         timeout = getattr(getattr(ctx, "config", None), "analysis", None)
         seconds = getattr(timeout, "git_timeout_seconds", None)
-        repo = Repo(ctx.repo_path, timeout=float(seconds)) if isinstance(seconds, (int, float)) else Repo(ctx.repo_path)
+        repo = (
+            Repo(ctx.repo_path, timeout=float(seconds))
+            if isinstance(seconds, (int, float))
+            else Repo(ctx.repo_path)
+        )
         return repo if repo.is_repository() else None
     except Exception:  # noqa: BLE001 - history is optional; absence is not an error
         return None

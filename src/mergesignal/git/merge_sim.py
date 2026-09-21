@@ -82,7 +82,14 @@ _MARKER_THEIRS = ">>>>>>>"
 _DIFF3 = ["-c", "merge.conflictstyle=diff3"]
 
 
-def simulate_merge(repo: Repo, base: str, head: str, *, prefer_merge_tree: bool = True, extract_regions: bool = True) -> MergeSimulation:
+def simulate_merge(
+    repo: Repo,
+    base: str,
+    head: str,
+    *,
+    prefer_merge_tree: bool = True,
+    extract_regions: bool = True,
+) -> MergeSimulation:
     """Simulate merging ``head`` into ``base`` and report what would conflict.
 
     :param repo: read-only repository handle.
@@ -104,7 +111,9 @@ def simulate_merge(repo: Repo, base: str, head: str, *, prefer_merge_tree: bool 
     return worktree_simulate(repo, base, head, extract_regions=extract_regions)
 
 
-def merge_tree_simulate(repo: Repo, base: str, head: str, *, extract_regions: bool = True) -> MergeSimulation:
+def merge_tree_simulate(
+    repo: Repo, base: str, head: str, *, extract_regions: bool = True
+) -> MergeSimulation:
     """``git merge-tree --write-tree`` path (git >= 2.38).
 
     Exit status 0 means a clean merge, 1 means conflicts; any other status is a
@@ -133,7 +142,11 @@ def merge_tree_simulate(repo: Repo, base: str, head: str, *, extract_regions: bo
     regions: list[ConflictRegion] = []
     if extract_regions and tree_sha:
         for path in paths:
-            regions.extend(_regions_from_blob(repo, tree_sha, path, binary_hint=_is_binary_conflict(info.get(path, ()))))
+            regions.extend(
+                _regions_from_blob(
+                    repo, tree_sha, path, binary_hint=_is_binary_conflict(info.get(path, ()))
+                )
+            )
 
     return MergeSimulation(
         base=base,
@@ -148,7 +161,9 @@ def merge_tree_simulate(repo: Repo, base: str, head: str, *, extract_regions: bo
     )
 
 
-def worktree_simulate(repo: Repo, base: str, head: str, *, extract_regions: bool = True) -> MergeSimulation:
+def worktree_simulate(
+    repo: Repo, base: str, head: str, *, extract_regions: bool = True
+) -> MergeSimulation:
     """Fallback path for git < 2.38 using a disposable detached worktree.
 
     Guarantees cleanup of the scratch worktree even when the merge or the
@@ -194,7 +209,9 @@ def worktree_simulate(repo: Repo, base: str, head: str, *, extract_regions: bool
                 # from the leftover file.
                 binary = _binary_paths(repo, base, head)
                 for path in paths:
-                    regions.extend(_regions_from_file(workdir / path, path, binary_hint=path in binary))
+                    regions.extend(
+                        _regions_from_file(workdir / path, path, binary_hint=path in binary)
+                    )
         finally:
             # Leave the scratch worktree in a sane state before it is removed;
             # `worktree remove --force` copes either way, but aborting first
@@ -377,7 +394,9 @@ def conflicted_paths(repo: Repo, base: str, head: str) -> list[str]:
 # --------------------------------------------------------------------- internals
 
 
-def _prepare(repo: Repo, base: str, head: str, strategy: str) -> tuple[str | None, MergeSimulation | None]:
+def _prepare(
+    repo: Repo, base: str, head: str, strategy: str
+) -> tuple[str | None, MergeSimulation | None]:
     """Resolve refs and short-circuit the two no-work cases.
 
     :returns: ``(merge_base, simulation)``. ``simulation`` is a finished
@@ -533,7 +552,9 @@ def _regions_from_text(text: str, path: str) -> list[ConflictRegion]:
     return regions or [_whole_file_region(path, text)]
 
 
-def _regions_from_blob(repo: Repo, tree_sha: str, path: str, *, binary_hint: bool) -> list[ConflictRegion]:
+def _regions_from_blob(
+    repo: Repo, tree_sha: str, path: str, *, binary_hint: bool
+) -> list[ConflictRegion]:
     """Read one conflicted blob out of the written tree and describe it.
 
     A blob that cannot be read (deleted on both sides, or an exotic conflict
@@ -551,7 +572,9 @@ def _regions_from_blob(repo: Repo, tree_sha: str, path: str, *, binary_hint: boo
     return _regions_from_text(blob.decode("utf-8", errors="replace"), path)
 
 
-def _regions_from_file(target: Path, path: str, *, binary_hint: bool = False) -> list[ConflictRegion]:
+def _regions_from_file(
+    target: Path, path: str, *, binary_hint: bool = False
+) -> list[ConflictRegion]:
     """Same as :func:`_regions_from_blob` but reading the scratch worktree."""
     if binary_hint:
         return [_binary_region(path)]

@@ -112,7 +112,9 @@ def _open_repo_or_exit(repo_path: str, timeout: float) -> Repo:
 # ------------------------------------------------------------------- pipeline
 
 
-def build_context(repo: Repo, base: str, head: str, config: Config, *, others: list[BranchDiff] | None = None) -> AnalysisContext:
+def build_context(
+    repo: Repo, base: str, head: str, config: Config, *, others: list[BranchDiff] | None = None
+) -> AnalysisContext:
     """Assemble the inputs every signal engine shares.
 
     Resolves the merge base, computes the two structured diffs (merge-base to
@@ -145,8 +147,12 @@ def build_context(repo: Repo, base: str, head: str, config: Config, *, others: l
     try:
         from mergesignal.analysis.diff import diff_refs
 
-        ctx_kwargs["base_diff"] = diff_refs(repo, diff_base, base, max_files=config.analysis.max_files)
-        ctx_kwargs["head_diff"] = diff_refs(repo, diff_base, head, max_files=config.analysis.max_files)
+        ctx_kwargs["base_diff"] = diff_refs(
+            repo, diff_base, base, max_files=config.analysis.max_files
+        )
+        ctx_kwargs["head_diff"] = diff_refs(
+            repo, diff_base, head, max_files=config.analysis.max_files
+        )
     except (NotImplementedError, GitError, ImportError):
         ctx_kwargs["base_diff"] = None
         ctx_kwargs["head_diff"] = None
@@ -310,10 +316,14 @@ def _fallback_render(report: Report, fmt: OutputFormat) -> str:
         "",
     ]
     for signal in report.signals:
-        lines.append(f"[{signal.status}] {signal.name}: {signal.summary or '-'} ({len(signal.findings)} findings)")
+        lines.append(
+            f"[{signal.status}] {signal.name}: {signal.summary or '-'} ({len(signal.findings)} findings)"
+        )
         for finding in sorted(signal.findings, key=lambda f: f.sort_key):
             location = f" {finding.file}:{finding.line}" if finding.file else ""
-            lines.append(f"    - ({finding.severity}/{finding.confidence}){location} {finding.title}")
+            lines.append(
+                f"    - ({finding.severity}/{finding.confidence}){location} {finding.title}"
+            )
     if report.risk_score is not None:
         lines.extend(["", f"risk: {report.risk_score.score:.0f}/100 ({report.risk_score.level})"])
     if fmt == "md":
@@ -334,23 +344,74 @@ def _version_callback(value: bool) -> None:
 
 @app.callback()
 def main(
-    version: Annotated[bool, typer.Option("--version", callback=_version_callback, is_eager=True, help="Print the version and exit.")] = False,
+    version: Annotated[
+        bool,
+        typer.Option(
+            "--version",
+            callback=_version_callback,
+            is_eager=True,
+            help="Print the version and exit.",
+        ),
+    ] = False,
 ) -> None:
     """MergeSignal — answer "what happens if this merges?" before it merges."""
 
 
 @app.command()
 def analyze(
-    base: Annotated[str, typer.Option("--base", "-b", help="Base ref to merge into (branch, tag or sha).")] = "HEAD",
-    head: Annotated[str, typer.Option("--head", "-H", help="Head ref to merge from (branch, tag or sha).")] = "HEAD",
-    fmt: Annotated[str, typer.Option("--format", "-f", help="Output format: text, json or md.")] = "text",
-    repo_path: Annotated[str, typer.Option("--repo", "-C", help="Repository to analyse. Defaults to the current directory.")] = ".",
-    config_path: Annotated[str | None, typer.Option("--config", help="Path to .mergesignal.yaml. Defaults to searching upward from the repo.")] = None,
-    branches: Annotated[list[str] | None, typer.Option("--branches", help="Local branches to check for cross-branch overlap. Repeat or comma-separate; 'all' uses every local branch.")] = None,
-    prs: Annotated[list[str] | None, typer.Option("--prs", help="GitHub PR numbers to check for overlap. Repeat or comma-separate; 'open' uses every open PR.")] = None,
-    threshold: Annotated[str | None, typer.Option("--threshold", help="Severity at or above which the command exits 1. Overrides the config.")] = None,
-    signals: Annotated[list[str] | None, typer.Option("--signal", help="Run only these signals. Repeat the flag; defaults to the config's enabled_signals.")] = None,
-    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Include full evidence in the output.")] = False,
+    base: Annotated[
+        str, typer.Option("--base", "-b", help="Base ref to merge into (branch, tag or sha).")
+    ] = "HEAD",
+    head: Annotated[
+        str, typer.Option("--head", "-H", help="Head ref to merge from (branch, tag or sha).")
+    ] = "HEAD",
+    fmt: Annotated[
+        str, typer.Option("--format", "-f", help="Output format: text, json or md.")
+    ] = "text",
+    repo_path: Annotated[
+        str,
+        typer.Option(
+            "--repo", "-C", help="Repository to analyse. Defaults to the current directory."
+        ),
+    ] = ".",
+    config_path: Annotated[
+        str | None,
+        typer.Option(
+            "--config",
+            help="Path to .mergesignal.yaml. Defaults to searching upward from the repo.",
+        ),
+    ] = None,
+    branches: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--branches",
+            help="Local branches to check for cross-branch overlap. Repeat or comma-separate; 'all' uses every local branch.",
+        ),
+    ] = None,
+    prs: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--prs",
+            help="GitHub PR numbers to check for overlap. Repeat or comma-separate; 'open' uses every open PR.",
+        ),
+    ] = None,
+    threshold: Annotated[
+        str | None,
+        typer.Option(
+            "--threshold",
+            help="Severity at or above which the command exits 1. Overrides the config.",
+        ),
+    ] = None,
+    signals: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--signal",
+            help="Run only these signals. Repeat the flag; defaults to the config's enabled_signals.",
+        ),
+    ] = None,
+    verbose: Annotated[
+        bool, typer.Option("--verbose", "-v", help="Include full evidence in the output.")
+    ] = False,
 ) -> None:
     """Analyse merging --head into --base and report the four signals.
 
@@ -380,15 +441,37 @@ def analyze(
 
 @app.command()
 def scan(
-    base: Annotated[str, typer.Option("--base", "-b", help="Base ref every candidate is compared against.")] = "HEAD",
-    repo_path: Annotated[str, typer.Option("--repo", "-C", help="Repository to scan. Defaults to the current directory.")] = ".",
-    fmt: Annotated[str, typer.Option("--format", "-f", help="Output format: text, json or md.")] = "text",
-    config_path: Annotated[str | None, typer.Option("--config", help="Path to .mergesignal.yaml.")] = None,
-    branches: Annotated[list[str] | None, typer.Option("--branches", help="Local branches to scan. Repeat, comma-separate, or pass 'all'.")] = None,
-    prs: Annotated[list[str] | None, typer.Option("--prs", help="GitHub PRs to scan. Repeat, comma-separate, or pass 'open'.")] = None,
-    threshold: Annotated[str | None, typer.Option("--threshold", help="Severity at or above which the command exits 1.")] = None,
+    base: Annotated[
+        str, typer.Option("--base", "-b", help="Base ref every candidate is compared against.")
+    ] = "HEAD",
+    repo_path: Annotated[
+        str,
+        typer.Option("--repo", "-C", help="Repository to scan. Defaults to the current directory."),
+    ] = ".",
+    fmt: Annotated[
+        str, typer.Option("--format", "-f", help="Output format: text, json or md.")
+    ] = "text",
+    config_path: Annotated[
+        str | None, typer.Option("--config", help="Path to .mergesignal.yaml.")
+    ] = None,
+    branches: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--branches", help="Local branches to scan. Repeat, comma-separate, or pass 'all'."
+        ),
+    ] = None,
+    prs: Annotated[
+        list[str] | None,
+        typer.Option("--prs", help="GitHub PRs to scan. Repeat, comma-separate, or pass 'open'."),
+    ] = None,
+    threshold: Annotated[
+        str | None,
+        typer.Option("--threshold", help="Severity at or above which the command exits 1."),
+    ] = None,
     limit: Annotated[int, typer.Option("--limit", help="Maximum candidates to scan.")] = 20,
-    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Include full evidence in the output.")] = False,
+    verbose: Annotated[
+        bool, typer.Option("--verbose", "-v", help="Include full evidence in the output.")
+    ] = False,
 ) -> None:
     """Scan many branches or PRs against a base and report which ones collide.
 
@@ -441,8 +524,12 @@ def scan(
 def serve(
     host: Annotated[str, typer.Option("--host", help="Interface to bind.")] = "127.0.0.1",
     port: Annotated[int, typer.Option("--port", "-p", help="Port to bind.")] = 8000,
-    config_path: Annotated[str | None, typer.Option("--config", help="Path to .mergesignal.yaml.")] = None,
-    reload: Annotated[bool, typer.Option("--reload", help="Auto-reload on code changes (development only).")] = False,
+    config_path: Annotated[
+        str | None, typer.Option("--config", help="Path to .mergesignal.yaml.")
+    ] = None,
+    reload: Annotated[
+        bool, typer.Option("--reload", help="Auto-reload on code changes (development only).")
+    ] = False,
     log_level: Annotated[str, typer.Option("--log-level", help="uvicorn log level.")] = "info",
 ) -> None:
     """Run the GitHub webhook service.
@@ -459,7 +546,9 @@ def serve(
 
         run_server(host=host, port=port, reload=reload, log_level=log_level)
     except ImportError as exc:
-        _echo_err(f"error: the webhook service needs the web dependencies (fastapi, uvicorn): {exc}")
+        _echo_err(
+            f"error: the webhook service needs the web dependencies (fastapi, uvicorn): {exc}"
+        )
         raise typer.Exit(EXIT_ERROR) from exc
     except RuntimeError as exc:
         _echo_err(f"error: {exc}")
@@ -532,7 +621,9 @@ def resolve_branch_refs(repo: Repo, branches: list[str] | None, *, base: str) ->
     return resolved
 
 
-def collect_others(repo: Repo, config: Config, *, branches: list[str] | None, prs: list[str] | None, base: str) -> list[BranchDiff]:
+def collect_others(
+    repo: Repo, config: Config, *, branches: list[str] | None, prs: list[str] | None, base: str
+) -> list[BranchDiff]:
     """Build the overlap inputs (S3) from ``--branches`` and/or ``--prs``.
 
     Local branches are diffed directly; PRs are fetched through
@@ -548,7 +639,9 @@ def collect_others(repo: Repo, config: Config, *, branches: list[str] | None, pr
             from mergesignal.analysis.diff import diff_refs
 
             for name in branch_names:
-                diff = diff_refs(repo, base, name, merge_base=True, max_files=config.analysis.max_files)
+                diff = diff_refs(
+                    repo, base, name, merge_base=True, max_files=config.analysis.max_files
+                )
                 others.append(
                     BranchDiff(
                         name=name,
@@ -571,7 +664,9 @@ def collect_others(repo: Repo, config: Config, *, branches: list[str] | None, pr
     return others
 
 
-def index_branch_symbols(repo: Repo, ref: str, diff: Diff, config: Config, *, base: str) -> list[Symbol]:
+def index_branch_symbols(
+    repo: Repo, ref: str, diff: Diff, config: Config, *, base: str
+) -> list[Symbol]:
     """Symbols that ``ref`` actually **changed** since its merge base with ``base``.
 
     This is the other half of :func:`mergesignal.signals.overlap.symbol_overlap`,
@@ -608,7 +703,9 @@ def index_branch_symbols(repo: Repo, ref: str, diff: Diff, config: Config, *, ba
     return [change.symbol for change in diff_symbols(before, after)]
 
 
-def _collect_pr_diffs(repo: Repo, config: Config, pr_values: list[str], *, base: str) -> list[BranchDiff]:
+def _collect_pr_diffs(
+    repo: Repo, config: Config, pr_values: list[str], *, base: str
+) -> list[BranchDiff]:
     """Fetch open PRs and diff each against ``base``.
 
     ``open`` expands to every open PR up to ``config.github.max_prs``; otherwise
@@ -647,7 +744,9 @@ def _collect_pr_diffs(repo: Repo, config: Config, pr_values: list[str], *, base:
         for pull in pulls:
             ref = _local_ref_for_pull(repo, pull)
             if ref is None:
-                _echo_err(f"warning: skipping PR #{pull.number}: {pull.head_ref} is not in the local repository (git fetch it first)")
+                _echo_err(
+                    f"warning: skipping PR #{pull.number}: {pull.head_ref} is not in the local repository (git fetch it first)"
+                )
                 continue
             diff = diff_refs(repo, base, ref, merge_base=True, max_files=config.analysis.max_files)
             others.append(
@@ -677,7 +776,9 @@ def _resolve_repo_slug(repo: Repo, config: Config) -> str:
     result = repo.run_result(["remote", "get-url", "origin"])
     slug = slug_from_remote(result.stdout.strip()) if result.ok else None
     if slug is None:
-        raise GitError("cannot determine the GitHub repository; set github.repo in .mergesignal.yaml")
+        raise GitError(
+            "cannot determine the GitHub repository; set github.repo in .mergesignal.yaml"
+        )
     return slug
 
 
@@ -687,7 +788,12 @@ def _local_ref_for_pull(repo: Repo, pull: Any) -> str | None:
     Tries the exact head sha first (present when the user has fetched the PR),
     then the usual remote-tracking and ``refs/pull`` locations.
     """
-    candidates = [pull.head_sha, f"refs/pull/{pull.number}/head", f"origin/{pull.head_ref}", pull.head_ref]
+    candidates = [
+        pull.head_sha,
+        f"refs/pull/{pull.number}/head",
+        f"origin/{pull.head_ref}",
+        pull.head_ref,
+    ]
     for candidate in candidates:
         if candidate and repo.ref_exists(candidate):
             return candidate

@@ -36,7 +36,7 @@ def names(symbols: list[Symbol]) -> list[str]:
 # ------------------------------------------------------------------- python
 
 
-PYTHON_SOURCE = '''import os
+PYTHON_SOURCE = """import os
 import os.path as osp
 from lib import greet, other as o
 
@@ -56,7 +56,7 @@ class Greeter:
 def main(argv=None):
     g = Greeter("ada")
     return g.greet(loud=True)
-'''
+"""
 
 
 def test_python_symbols_are_exact() -> None:
@@ -159,7 +159,9 @@ def test_javascript_symbols_are_exact() -> None:
 
 
 def test_javascript_arrow_assigned_to_const_is_a_function() -> None:
-    symbol = next(s for s in extract_symbols(JS_SOURCE, "app.js", "javascript") if s.name == "arrow")
+    symbol = next(
+        s for s in extract_symbols(JS_SOURCE, "app.js", "javascript") if s.name == "arrow"
+    )
     assert (symbol.kind, symbol.signature) == ("function", "(x)")
 
 

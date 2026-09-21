@@ -452,9 +452,7 @@ def test_format_evidence_truncates_unless_verbose() -> None:
 
 def test_ordered_signals_is_stable_for_shuffled_input(report: Report) -> None:
     shuffled = report.model_copy(update={"signals": list(reversed(report.signals))})
-    assert [s.name for s in ordered_signals(shuffled)] == [
-        s.name for s in ordered_signals(report)
-    ]
+    assert [s.name for s in ordered_signals(shuffled)] == [s.name for s in ordered_signals(report)]
 
 
 # -------------------------------------------------------------- determinism

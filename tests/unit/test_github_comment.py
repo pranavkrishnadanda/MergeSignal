@@ -30,7 +30,9 @@ def report() -> Report:
     return build_report()
 
 
-def comment(cid: int, body: str, login: str = "mergesignal[bot]", created: str | None = None) -> dict[str, Any]:
+def comment(
+    cid: int, body: str, login: str = "mergesignal[bot]", created: str | None = None
+) -> dict[str, Any]:
     """A minimal GitHub issue-comment object."""
     payload: dict[str, Any] = {"id": cid, "body": body, "user": {"login": login}}
     if created is not None:

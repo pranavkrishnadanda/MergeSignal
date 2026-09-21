@@ -26,7 +26,9 @@ from tests.helpers.repo_builder import RepoBuilder
 pytestmark = pytest.mark.integration
 
 
-def build_full_context(path: Path, *, base: str = "main", head: str = "feature", config: Config | None = None) -> AnalysisContext:
+def build_full_context(
+    path: Path, *, base: str = "main", head: str = "feature", config: Config | None = None
+) -> AnalysisContext:
     """Build a two-sided :class:`~mergesignal.models.AnalysisContext` for a repo.
 
     Indexes the union of both sides' touched paths so that a change on one side
@@ -99,11 +101,17 @@ def test_signature_change_with_new_callers(builder: RepoBuilder) -> None:
 
 def test_removed_symbol_still_referenced(builder: RepoBuilder) -> None:
     """feature deletes a helper that main starts calling from another module."""
-    builder.file("lib.py", "def helper(x):\n    return x\n\n\ndef keep(y):\n    return y\n").commit("add lib")
+    builder.file("lib.py", "def helper(x):\n    return x\n\n\ndef keep(y):\n    return y\n").commit(
+        "add lib"
+    )
     builder.branch("feature")
     builder.file("lib.py", "def keep(y):\n    return y\n").commit("drop helper")
     builder.checkout("main")
-    path = builder.file("app.py", "from lib import helper\n\nhelper(3)\n").commit("call helper").build()
+    path = (
+        builder.file("app.py", "from lib import helper\n\nhelper(3)\n")
+        .commit("call helper")
+        .build()
+    )
 
     signal = semantic.analyze(build_full_context(path))
 
@@ -118,11 +126,19 @@ def test_removed_symbol_still_referenced(builder: RepoBuilder) -> None:
 
 
 def test_removed_symbol_referenced_in_its_own_file_is_critical(builder: RepoBuilder) -> None:
-    builder.file("lib.py", "def helper(x):\n    return x\n\n\ndef caller(y):\n    return y\n").commit("add lib")
+    builder.file(
+        "lib.py", "def helper(x):\n    return x\n\n\ndef caller(y):\n    return y\n"
+    ).commit("add lib")
     builder.branch("feature")
     builder.file("lib.py", "def caller(y):\n    return y\n").commit("drop helper")
     builder.checkout("main")
-    path = builder.file("lib.py", "def helper(x):\n    return x\n\n\ndef caller(y):\n    return helper(y)\n").commit("use helper").build()
+    path = (
+        builder.file(
+            "lib.py", "def helper(x):\n    return x\n\n\ndef caller(y):\n    return helper(y)\n"
+        )
+        .commit("use helper")
+        .build()
+    )
 
     signal = semantic.analyze(build_full_context(path))
 
@@ -171,7 +187,11 @@ def test_renaming_a_file_and_calling_it_from_the_other_side(builder: RepoBuilder
     builder.move("lib.py", "util.py")
     builder.commit("move lib to util")
     builder.checkout("main")
-    path = builder.file("app.py", "from lib import helper\n\nhelper(1)\n").commit("call helper").build()
+    path = (
+        builder.file("app.py", "from lib import helper\n\nhelper(1)\n")
+        .commit("call helper")
+        .build()
+    )
 
     signal = semantic.analyze(build_full_context(path))
 
@@ -181,11 +201,19 @@ def test_renaming_a_file_and_calling_it_from_the_other_side(builder: RepoBuilder
 
 def test_typescript_signature_change_is_detected(builder: RepoBuilder) -> None:
     """Semantic analysis is not python-only."""
-    builder.file("lib.ts", "export function compute(a: number) {\n  return a;\n}\n").commit("add lib")
+    builder.file("lib.ts", "export function compute(a: number) {\n  return a;\n}\n").commit(
+        "add lib"
+    )
     builder.branch("feature")
-    builder.file("lib.ts", "export function compute(a: number, b: number) {\n  return a + b;\n}\n").commit("widen")
+    builder.file(
+        "lib.ts", "export function compute(a: number, b: number) {\n  return a + b;\n}\n"
+    ).commit("widen")
     builder.checkout("main")
-    path = builder.file("app.ts", "import { compute } from './lib';\n\ncompute(1);\n").commit("call it").build()
+    path = (
+        builder.file("app.ts", "import { compute } from './lib';\n\ncompute(1);\n")
+        .commit("call it")
+        .build()
+    )
 
     signal = semantic.analyze(build_full_context(path))
 

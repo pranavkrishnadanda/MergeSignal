@@ -128,7 +128,9 @@ def analyze_pull_request(
 
     try:
         if client is None:
-            client = GitHubClient(repo_slug, token=token, api_url=api_url, transport=transport, clone_url=clone_url)
+            client = GitHubClient(
+                repo_slug, token=token, api_url=api_url, transport=transport, clone_url=clone_url
+            )
 
         pr = client.get_pull(pr_number)
         _check_deadline(deadline)
@@ -180,7 +182,9 @@ def analyze_pull_request(
     except RunTimeout as exc:
         logger.warning("analysis of %s#%s timed out: %s", repo_slug, pr_number, exc)
         if post_comment and client is not None:
-            _post_failure_comment(client, pr_number, f"Analysis timed out after {timeout_seconds:.0f}s.")
+            _post_failure_comment(
+                client, pr_number, f"Analysis timed out after {timeout_seconds:.0f}s."
+            )
         return WorkerResult(
             repo_slug=repo_slug,
             pr_number=pr_number,
@@ -275,7 +279,9 @@ def _run_analysis(
 PEER_REF_PREFIX = "refs/mergesignal/others"
 
 
-def _collect_peer_diffs(repo: Repo, client: Any, pr: Any, config: Any, *, base_url: str | None, deadline: float | None) -> list[Any]:
+def _collect_peer_diffs(
+    repo: Repo, client: Any, pr: Any, config: Any, *, base_url: str | None, deadline: float | None
+) -> list[Any]:
     """Fetch other open PRs' heads and diff each against the base — S3 input.
 
     Unlike :func:`mergesignal.cli.collect_others`, which is forbidden from
@@ -294,7 +300,12 @@ def _collect_peer_diffs(repo: Repo, client: Any, pr: Any, config: Any, *, base_u
     try:
         pulls = client.list_open_pulls(limit=config.github.max_prs, base=base)
     except Exception as exc:  # noqa: BLE001 - overlap is advisory, never fatal
-        logger.warning("could not list open PRs for overlap on %s#%s: %s", client.repo_slug, getattr(pr, "number", "?"), exc)
+        logger.warning(
+            "could not list open PRs for overlap on %s#%s: %s",
+            client.repo_slug,
+            getattr(pr, "number", "?"),
+            exc,
+        )
         return []
 
     others: list[Any] = []
@@ -308,7 +319,9 @@ def _collect_peer_diffs(repo: Repo, client: Any, pr: Any, config: Any, *, base_u
         if not url:
             continue
         try:
-            _fetch(repo, url, [f"+refs/heads/{pull.head_ref}:{local_ref}"], depth=DEFAULT_FETCH_DEPTH)
+            _fetch(
+                repo, url, [f"+refs/heads/{pull.head_ref}:{local_ref}"], depth=DEFAULT_FETCH_DEPTH
+            )
         except GitError as exc:
             logger.warning("skipping peer %s for overlap: %s", pull.label, exc)
             continue
@@ -400,7 +413,9 @@ def prepare_checkout(
         _fetch(repo, base_url, [base_spec], depth=depth)
         _fetch(repo, head_url, [head_spec], depth=depth)
 
-    _ensure_merge_base(repo, base_ref, local_head, base_url, head_url, depth=depth, same_origin=same_origin)
+    _ensure_merge_base(
+        repo, base_ref, local_head, base_url, head_url, depth=depth, same_origin=same_origin
+    )
     return str(path)
 
 
@@ -430,7 +445,16 @@ def _fetch(repo: Repo, url: str, refspecs: list[str], *, depth: int | None) -> N
     )
 
 
-def _ensure_merge_base(repo: Repo, base_ref: str, head_ref: str, base_url: str, head_url: str, *, depth: int, same_origin: bool) -> None:
+def _ensure_merge_base(
+    repo: Repo,
+    base_ref: str,
+    head_ref: str,
+    base_url: str,
+    head_url: str,
+    *,
+    depth: int,
+    same_origin: bool,
+) -> None:
     """Deepen the history until the two refs share an ancestor, or give up.
 
     Giving up is not fatal: unrelated histories are a legitimate (if weird)
@@ -454,7 +478,9 @@ def _ensure_merge_base(repo: Repo, base_ref: str, head_ref: str, base_url: str, 
     repo.run_result(["fetch", "--quiet", "--no-tags", "--unshallow", base_url])
 
 
-def _deepen_targets(base_ref: str, head_ref: str, base_url: str, head_url: str, same_origin: bool) -> list[tuple[str, str]]:
+def _deepen_targets(
+    base_ref: str, head_ref: str, base_url: str, head_url: str, same_origin: bool
+) -> list[tuple[str, str]]:
     """``(url, refspec)`` pairs to re-fetch when deepening."""
     base = (base_url, f"+refs/heads/{base_ref}:refs/heads/{base_ref}")
     if same_origin:

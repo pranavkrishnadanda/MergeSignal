@@ -18,7 +18,9 @@ from tests.helpers.repo_builder import RepoBuilder
 pytestmark = pytest.mark.integration
 
 
-def changes_between(builder: RepoBuilder, base: str, head: str, **kwargs: object) -> list[SymbolChange]:
+def changes_between(
+    builder: RepoBuilder, base: str, head: str, **kwargs: object
+) -> list[SymbolChange]:
     """Full pipeline: diff two refs, index both sides, classify the symbols."""
     repo = Repo(builder.build())
     diff = diff_refs(repo, base, head, merge_base=True)

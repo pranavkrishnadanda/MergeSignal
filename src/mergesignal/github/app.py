@@ -194,7 +194,9 @@ class GitHubAppAuth:
         if not isinstance(token, str) or not token:
             raise GitHubError(f"installation {installation_id} returned no token", body=data)
         expires_at = _parse_expiry(data.get("expires_at"))
-        return InstallationToken(token=token, expires_at=expires_at, installation_id=installation_id)
+        return InstallationToken(
+            token=token, expires_at=expires_at, installation_id=installation_id
+        )
 
     def _api(self, method: str, path: str) -> Any:
         """Call the REST API authenticated with a freshly signed App JWT."""
@@ -206,7 +208,9 @@ class GitHubAppAuth:
             "Authorization": f"Bearer {self.create_jwt()}",
         }
         try:
-            with httpx.Client(base_url=self.api_url, timeout=self.timeout, transport=self._transport) as client:
+            with httpx.Client(
+                base_url=self.api_url, timeout=self.timeout, transport=self._transport
+            ) as client:
                 response = client.request(method, path, headers=headers)
         except httpx.HTTPError as exc:
             raise GitHubError(f"GitHub App request failed: {exc}") from exc

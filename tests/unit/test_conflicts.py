@@ -41,7 +41,12 @@ def region(
 
 def simulation(**overrides: Any) -> MergeSimulation:
     """Build a :class:`~mergesignal.models.MergeSimulation` with sane defaults."""
-    kwargs: dict[str, Any] = {"base": "main", "head": "feature", "merge_base": "0" * 40, "clean": True}
+    kwargs: dict[str, Any] = {
+        "base": "main",
+        "head": "feature",
+        "merge_base": "0" * 40,
+        "clean": True,
+    }
     kwargs.update(overrides)
     return MergeSimulation(**kwargs)
 
@@ -64,7 +69,9 @@ def stub_simulation(monkeypatch: pytest.MonkeyPatch) -> Callable[..., None]:
 # ------------------------------------------------------------------ statuses
 
 
-def test_clean_merge_is_ok(make_context: Callable[..., AnalysisContext], stub_simulation: Callable[..., None]) -> None:
+def test_clean_merge_is_ok(
+    make_context: Callable[..., AnalysisContext], stub_simulation: Callable[..., None]
+) -> None:
     stub_simulation(simulation(clean=True, strategy="merge-tree"))
 
     signal = conflicts.analyze(make_context())
@@ -82,7 +89,9 @@ def test_clean_merge_is_ok(make_context: Callable[..., AnalysisContext], stub_si
     }
 
 
-def test_up_to_date_is_ok_not_error(make_context: Callable[..., AnalysisContext], stub_simulation: Callable[..., None]) -> None:
+def test_up_to_date_is_ok_not_error(
+    make_context: Callable[..., AnalysisContext], stub_simulation: Callable[..., None]
+) -> None:
     stub_simulation(simulation(clean=True, up_to_date=True))
 
     signal = conflicts.analyze(make_context())
@@ -92,7 +101,9 @@ def test_up_to_date_is_ok_not_error(make_context: Callable[..., AnalysisContext]
     assert signal.metadata["up_to_date"] is True
 
 
-def test_git_failure_becomes_error_signal(make_context: Callable[..., AnalysisContext], stub_simulation: Callable[..., None]) -> None:
+def test_git_failure_becomes_error_signal(
+    make_context: Callable[..., AnalysisContext], stub_simulation: Callable[..., None]
+) -> None:
     stub_simulation(GitError("unknown revision 'nope'"))
 
     signal = conflicts.analyze(make_context())
@@ -102,7 +113,9 @@ def test_git_failure_becomes_error_signal(make_context: Callable[..., AnalysisCo
     assert signal.findings == []
 
 
-def test_unexpected_exception_becomes_error_signal(make_context: Callable[..., AnalysisContext], stub_simulation: Callable[..., None]) -> None:
+def test_unexpected_exception_becomes_error_signal(
+    make_context: Callable[..., AnalysisContext], stub_simulation: Callable[..., None]
+) -> None:
     stub_simulation(RuntimeError("boom"))
 
     signal = conflicts.analyze(make_context())
@@ -114,7 +127,9 @@ def test_unexpected_exception_becomes_error_signal(make_context: Callable[..., A
 # ------------------------------------------------------------------ findings
 
 
-def test_one_finding_per_region(make_context: Callable[..., AnalysisContext], stub_simulation: Callable[..., None]) -> None:
+def test_one_finding_per_region(
+    make_context: Callable[..., AnalysisContext], stub_simulation: Callable[..., None]
+) -> None:
     stub_simulation(
         simulation(
             clean=False,
@@ -135,8 +150,12 @@ def test_one_finding_per_region(make_context: Callable[..., AnalysisContext], st
     assert signal.summary == "3 conflicted regions across 2 files"
 
 
-def test_binary_region_is_critical_and_carries_no_excerpt(make_context: Callable[..., AnalysisContext], stub_simulation: Callable[..., None]) -> None:
-    binary = region("asset.bin", ours=(0, 0), theirs=(0, 0), ours_text=None, theirs_text=None, is_binary=True)
+def test_binary_region_is_critical_and_carries_no_excerpt(
+    make_context: Callable[..., AnalysisContext], stub_simulation: Callable[..., None]
+) -> None:
+    binary = region(
+        "asset.bin", ours=(0, 0), theirs=(0, 0), ours_text=None, theirs_text=None, is_binary=True
+    )
     stub_simulation(simulation(clean=False, conflicted_files=["asset.bin"], regions=[binary]))
 
     signal = conflicts.analyze(make_context())
@@ -149,8 +168,12 @@ def test_binary_region_is_critical_and_carries_no_excerpt(make_context: Callable
     assert "binary conflict" in signal.summary
 
 
-def test_conflicted_file_without_region_is_still_reported(make_context: Callable[..., AnalysisContext], stub_simulation: Callable[..., None]) -> None:
-    stub_simulation(simulation(clean=False, conflicted_files=["a.py", "gone.py"], regions=[region("a.py")]))
+def test_conflicted_file_without_region_is_still_reported(
+    make_context: Callable[..., AnalysisContext], stub_simulation: Callable[..., None]
+) -> None:
+    stub_simulation(
+        simulation(clean=False, conflicted_files=["a.py", "gone.py"], regions=[region("a.py")])
+    )
 
     signal = conflicts.analyze(make_context())
 
@@ -182,7 +205,9 @@ def test_evidence_carries_ranges_refs_and_excerpts() -> None:
 
 def test_excerpts_are_truncated() -> None:
     huge = "\n".join(f"line {i}" for i in range(500))
-    finding = conflicts.finding_for_region(region("a.py", ours_text=huge, theirs_text=huge), base="main", head="feature")
+    finding = conflicts.finding_for_region(
+        region("a.py", ours_text=huge, theirs_text=huge), base="main", head="feature"
+    )
 
     excerpt = finding.evidence["ours_excerpt"]
     assert excerpt.endswith(conflicts.TRUNCATION_MARKER)
@@ -190,7 +215,9 @@ def test_excerpts_are_truncated() -> None:
 
 
 def test_region_without_line_numbers_omits_line() -> None:
-    finding = conflicts.finding_for_region(region("a.py", ours=(0, 0), theirs=(0, 0)), base="main", head="feature")
+    finding = conflicts.finding_for_region(
+        region("a.py", ours=(0, 0), theirs=(0, 0)), base="main", head="feature"
+    )
 
     assert finding.line is None
     assert finding.file == "a.py"
@@ -207,7 +234,9 @@ def test_region_without_line_numbers_omits_line() -> None:
         ([region("a.py"), region("b.py")], ["a.py", "b.py"], "2 conflicted regions across 2 files"),
     ],
 )
-def test_summarize_pluralises(regions: list[ConflictRegion], files: list[str], expected: str) -> None:
+def test_summarize_pluralises(
+    regions: list[ConflictRegion], files: list[str], expected: str
+) -> None:
     assert conflicts.summarize(regions, files) == expected
 
 

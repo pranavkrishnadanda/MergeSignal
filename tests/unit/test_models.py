@@ -41,7 +41,11 @@ class TestLineRange:
 
 class TestDiffFile:
     def test_binary_file_may_not_carry_hunks(self) -> None:
-        hunk = Hunk(file_path="a.bin", base_range=LineRange(start=1, end=2), head_range=LineRange(start=1, end=2))
+        hunk = Hunk(
+            file_path="a.bin",
+            base_range=LineRange(start=1, end=2),
+            head_range=LineRange(start=1, end=2),
+        )
         with pytest.raises(ValidationError, match="binary"):
             DiffFile(path="a.bin", is_binary=True, hunks=[hunk])
 
@@ -65,10 +69,15 @@ class TestSymbolChange:
     def test_signature_change_requires_difference(self) -> None:
         symbol = Symbol(name="f", kind="function", file="a.py", line=1)
         with pytest.raises(ValidationError, match="differing signatures"):
-            SymbolChange(symbol=symbol, kind="signature_changed", old_signature="(a)", new_signature="(a)")
+            SymbolChange(
+                symbol=symbol, kind="signature_changed", old_signature="(a)", new_signature="(a)"
+            )
 
     def test_qualified_name(self) -> None:
-        assert Symbol(name="run", kind="method", file="a.py", line=2, parent="Job").qualified_name == "Job.run"
+        assert (
+            Symbol(name="run", kind="method", file="a.py", line=2, parent="Job").qualified_name
+            == "Job.run"
+        )
         assert Symbol(name="run", kind="function", file="a.py", line=2).qualified_name == "run"
 
 
@@ -102,16 +111,24 @@ class TestSignal:
         assert signal.status == "findings"
 
     def test_max_severity(self, make_finding) -> None:
-        signal = Signal.from_findings("risk", [make_finding(severity="low"), make_finding(severity="critical")])
+        signal = Signal.from_findings(
+            "risk", [make_finding(severity="low"), make_finding(severity="critical")]
+        )
         assert signal.max_severity == "critical"
         assert Signal(name="risk", status="ok").max_severity is None
 
 
 class TestMergeSimulation:
     def test_clean_merge_cannot_carry_conflicts(self) -> None:
-        region = ConflictRegion(file="a.py", ours_range=LineRange(start=1, end=2), theirs_range=LineRange(start=1, end=2))
+        region = ConflictRegion(
+            file="a.py",
+            ours_range=LineRange(start=1, end=2),
+            theirs_range=LineRange(start=1, end=2),
+        )
         with pytest.raises(ValidationError, match="clean"):
-            MergeSimulation(base="main", head="feature", clean=True, conflicted_files=["a.py"], regions=[region])
+            MergeSimulation(
+                base="main", head="feature", clean=True, conflicted_files=["a.py"], regions=[region]
+            )
 
     def test_conflicted_simulation(self) -> None:
         sim = MergeSimulation(base="main", head="feature", clean=False, conflicted_files=["a.py"])

@@ -159,7 +159,9 @@ class Scenario:
         """Analyse the built repository exactly as ``mergesignal analyze`` would."""
         config = self.config()
         repo = Repo(str(repo_path), timeout=config.analysis.git_timeout_seconds)
-        others = collect_others(repo, config, branches=self.branches or None, prs=None, base=self.base)
+        others = collect_others(
+            repo, config, branches=self.branches or None, prs=None, base=self.base
+        )
         ctx = build_context(repo, self.base, self.head, config, others=others)
         return run_pipeline(ctx, config)
 
@@ -222,7 +224,9 @@ def scrub_text(text: str, *, repo_path: str) -> str:
 def write_snapshot(scenario: Scenario, payload: dict[str, Any]) -> None:
     """Write ``payload`` as this scenario's golden file (``--snapshot-update``)."""
     SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
-    scenario.snapshot_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    scenario.snapshot_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
 
 
 def read_snapshot(scenario: Scenario) -> dict[str, Any]:
@@ -247,11 +251,17 @@ def _clean_merge(builder: RepoBuilder) -> None:
     engine inventing a finding out of an ordinary merge.
     """
     builder.file("alpha.py", "def alpha():\n    return 1\n")
-    builder.file("tests/test_alpha.py", "from alpha import alpha\n\n\ndef test_alpha():\n    assert alpha() == 1\n")
+    builder.file(
+        "tests/test_alpha.py",
+        "from alpha import alpha\n\n\ndef test_alpha():\n    assert alpha() == 1\n",
+    )
     builder.commit("initial")
     builder.branch("feature")
     builder.file("beta.py", "def beta():\n    return 2\n")
-    builder.file("tests/test_beta.py", "from beta import beta\n\n\ndef test_beta():\n    assert beta() == 2\n")
+    builder.file(
+        "tests/test_beta.py",
+        "from beta import beta\n\n\ndef test_beta():\n    assert beta() == 2\n",
+    )
     builder.commit("add beta")
     builder.checkout("main")
     builder.file("alpha.py", "def alpha():\n    return 1\n\n\ndef alpha_extra():\n    return 10\n")
@@ -269,7 +279,9 @@ def _textual_conflict(builder: RepoBuilder) -> None:
     builder.file("settings.conf", original).commit("initial settings")
 
     builder.branch("feature")
-    feature = original.replace("line 3\n", "line 3 FEATURE\n").replace("line 30\n", "line 30 FEATURE\n")
+    feature = original.replace("line 3\n", "line 3 FEATURE\n").replace(
+        "line 30\n", "line 30 FEATURE\n"
+    )
     builder.file("settings.conf", feature).commit("feature tweaks")
 
     builder.checkout("main")
@@ -400,7 +412,9 @@ def _unsupported_language(builder: RepoBuilder) -> None:
     """
     builder.file("pipeline.zzz", "BEGIN\n  step one\n  step two\nEND\n").commit("add pipeline")
     builder.branch("feature")
-    builder.file("pipeline.zzz", "BEGIN\n  step one\n  step two improved\nEND\n").commit("improve step two")
+    builder.file("pipeline.zzz", "BEGIN\n  step one\n  step two improved\nEND\n").commit(
+        "improve step two"
+    )
     builder.checkout("main")
     builder.file("notes.zzz", "BEGIN\n  unrelated\nEND\n").commit("add notes")
 

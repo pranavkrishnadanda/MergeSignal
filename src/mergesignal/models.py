@@ -95,8 +95,14 @@ class LineRange(MergeSignalModel):
     (exactly how ``git diff`` reports ``@@ -0,0 +1,3 @@``).
     """
 
-    start: int = Field(..., ge=0, description="First line of the range, 1-based inclusive. 0 only for empty ranges at the start of a file.")
-    end: int = Field(..., ge=0, description="One past the last line of the range, 1-based exclusive.")
+    start: int = Field(
+        ...,
+        ge=0,
+        description="First line of the range, 1-based inclusive. 0 only for empty ranges at the start of a file.",
+    )
+    end: int = Field(
+        ..., ge=0, description="One past the last line of the range, 1-based exclusive."
+    )
 
     @model_validator(mode="after")
     def _check_ordering(self) -> LineRange:
@@ -130,12 +136,24 @@ class Hunk(MergeSignalModel):
     is empty; for a pure deletion ``head_range`` is empty.
     """
 
-    file_path: str = Field(..., description="Repository-relative POSIX path of the file this hunk belongs to (the post-image path for renames).")
+    file_path: str = Field(
+        ...,
+        description="Repository-relative POSIX path of the file this hunk belongs to (the post-image path for renames).",
+    )
     base_range: LineRange = Field(..., description="Lines touched on the pre-image (base) side.")
     head_range: LineRange = Field(..., description="Lines touched on the post-image (head) side.")
-    added_lines: list[str] = Field(default_factory=list, description="Raw text of lines added by this hunk, without the leading '+' and without trailing newline.")
-    removed_lines: list[str] = Field(default_factory=list, description="Raw text of lines removed by this hunk, without the leading '-' and without trailing newline.")
-    header: str | None = Field(default=None, description="The literal '@@ ... @@' header line, including any trailing function-context hint git supplies.")
+    added_lines: list[str] = Field(
+        default_factory=list,
+        description="Raw text of lines added by this hunk, without the leading '+' and without trailing newline.",
+    )
+    removed_lines: list[str] = Field(
+        default_factory=list,
+        description="Raw text of lines removed by this hunk, without the leading '-' and without trailing newline.",
+    )
+    header: str | None = Field(
+        default=None,
+        description="The literal '@@ ... @@' header line, including any trailing function-context hint git supplies.",
+    )
 
     @property
     def is_pure_addition(self) -> bool:
@@ -160,15 +178,34 @@ class DiffFile(MergeSignalModel):
       the file to the textual fallback path rather than tree-sitter.
     """
 
-    path: str = Field(..., description="Repository-relative POSIX path in the head (post-image) tree; for deletions, the path it had in base.")
-    old_path: str | None = Field(default=None, description="Pre-image path when the file was renamed or copied, else None.")
-    is_binary: bool = Field(default=False, description="True when git reported the file as binary; hunks will be empty.")
-    is_new: bool = Field(default=False, description="True when the file did not exist in the base tree.")
-    is_deleted: bool = Field(default=False, description="True when the file does not exist in the head tree.")
-    hunks: list[Hunk] = Field(default_factory=list, description="Changed regions, in file order. Empty for binary files and pure mode changes.")
-    language: str | None = Field(default=None, description="tree-sitter language id ('python', 'javascript', ...) or None when unsupported.")
+    path: str = Field(
+        ...,
+        description="Repository-relative POSIX path in the head (post-image) tree; for deletions, the path it had in base.",
+    )
+    old_path: str | None = Field(
+        default=None, description="Pre-image path when the file was renamed or copied, else None."
+    )
+    is_binary: bool = Field(
+        default=False, description="True when git reported the file as binary; hunks will be empty."
+    )
+    is_new: bool = Field(
+        default=False, description="True when the file did not exist in the base tree."
+    )
+    is_deleted: bool = Field(
+        default=False, description="True when the file does not exist in the head tree."
+    )
+    hunks: list[Hunk] = Field(
+        default_factory=list,
+        description="Changed regions, in file order. Empty for binary files and pure mode changes.",
+    )
+    language: str | None = Field(
+        default=None,
+        description="tree-sitter language id ('python', 'javascript', ...) or None when unsupported.",
+    )
     additions: int = Field(default=0, ge=0, description="Total added line count across all hunks.")
-    deletions: int = Field(default=0, ge=0, description="Total removed line count across all hunks.")
+    deletions: int = Field(
+        default=0, ge=0, description="Total removed line count across all hunks."
+    )
 
     @model_validator(mode="after")
     def _check_flags(self) -> DiffFile:
@@ -199,7 +236,9 @@ class Diff(MergeSignalModel):
 
     base: str = Field(..., description="Ref (or commit sha) the diff is measured from.")
     head: str = Field(..., description="Ref (or commit sha) the diff is measured to.")
-    files: list[DiffFile] = Field(default_factory=list, description="Changed files, in git's output order.")
+    files: list[DiffFile] = Field(
+        default_factory=list, description="Changed files, in git's output order."
+    )
 
     @property
     def paths(self) -> set[str]:
@@ -232,9 +271,19 @@ class Symbol(MergeSignalModel):
     kind: SymbolKind = Field(..., description="Declaration flavour.")
     file: str = Field(..., description="Repository-relative POSIX path the declaration lives in.")
     line: int = Field(..., ge=1, description="1-based line of the declaration's name token.")
-    end_line: int | None = Field(default=None, ge=1, description="1-based last line of the declaration's body, when the grammar gives it.")
-    signature: str | None = Field(default=None, description="Normalised signature text, or None when the grammar exposes none.")
-    parent: str | None = Field(default=None, description="Enclosing scope name (class for a method, module for a top-level function), or None.")
+    end_line: int | None = Field(
+        default=None,
+        ge=1,
+        description="1-based last line of the declaration's body, when the grammar gives it.",
+    )
+    signature: str | None = Field(
+        default=None,
+        description="Normalised signature text, or None when the grammar exposes none.",
+    )
+    parent: str | None = Field(
+        default=None,
+        description="Enclosing scope name (class for a method, module for a top-level function), or None.",
+    )
 
     @property
     def qualified_name(self) -> str:
@@ -252,11 +301,22 @@ class SymbolChange(MergeSignalModel):
 
     symbol: Symbol = Field(..., description="The symbol being described.")
     kind: ChangeKind = Field(..., description="What happened to it.")
-    old_signature: str | None = Field(default=None, description="Signature on the base side, when known.")
-    new_signature: str | None = Field(default=None, description="Signature on the head side, when known.")
-    old_name: str | None = Field(default=None, description="Previous identifier when kind == 'renamed'.")
-    old_file: str | None = Field(default=None, description="Previous file path when the declaration moved.")
-    confidence: Confidence = Field(default="high", description="How sure the differ is; rename detection is a heuristic, so it is rarely 'high'.")
+    old_signature: str | None = Field(
+        default=None, description="Signature on the base side, when known."
+    )
+    new_signature: str | None = Field(
+        default=None, description="Signature on the head side, when known."
+    )
+    old_name: str | None = Field(
+        default=None, description="Previous identifier when kind == 'renamed'."
+    )
+    old_file: str | None = Field(
+        default=None, description="Previous file path when the declaration moved."
+    )
+    confidence: Confidence = Field(
+        default="high",
+        description="How sure the differ is; rename detection is a heuristic, so it is rarely 'high'.",
+    )
 
     @model_validator(mode="after")
     def _check_kind_fields(self) -> SymbolChange:
@@ -278,8 +338,12 @@ class Reference(MergeSignalModel):
     name: str = Field(..., description="Identifier being referenced, unqualified.")
     file: str = Field(..., description="Repository-relative POSIX path containing the usage.")
     line: int = Field(..., ge=1, description="1-based line of the usage.")
-    context: str = Field(default="", description="Source line text (trimmed) for human-readable evidence.")
-    column: int | None = Field(default=None, ge=0, description="0-based column of the usage when available.")
+    context: str = Field(
+        default="", description="Source line text (trimmed) for human-readable evidence."
+    )
+    column: int | None = Field(
+        default=None, ge=0, description="0-based column of the usage when available."
+    )
 
 
 class ConflictRegion(MergeSignalModel):
@@ -293,12 +357,27 @@ class ConflictRegion(MergeSignalModel):
     """
 
     file: str = Field(..., description="Repository-relative POSIX path of the conflicted file.")
-    ours_range: LineRange = Field(..., description="Lines contributed by the base ('ours') side in the merged buffer.")
-    theirs_range: LineRange = Field(..., description="Lines contributed by the head ('theirs') side in the merged buffer.")
-    ours_text: str | None = Field(default=None, description="Base-side text of the region; None for binary or unreadable blobs.")
-    theirs_text: str | None = Field(default=None, description="Head-side text of the region; None for binary or unreadable blobs.")
-    base_text: str | None = Field(default=None, description="Merge-base text of the region when the diff3 style is available.")
-    is_binary: bool = Field(default=False, description="True when the conflict is a binary/whole-file conflict with no line detail.")
+    ours_range: LineRange = Field(
+        ..., description="Lines contributed by the base ('ours') side in the merged buffer."
+    )
+    theirs_range: LineRange = Field(
+        ..., description="Lines contributed by the head ('theirs') side in the merged buffer."
+    )
+    ours_text: str | None = Field(
+        default=None,
+        description="Base-side text of the region; None for binary or unreadable blobs.",
+    )
+    theirs_text: str | None = Field(
+        default=None,
+        description="Head-side text of the region; None for binary or unreadable blobs.",
+    )
+    base_text: str | None = Field(
+        default=None, description="Merge-base text of the region when the diff3 style is available."
+    )
+    is_binary: bool = Field(
+        default=False,
+        description="True when the conflict is a binary/whole-file conflict with no line detail.",
+    )
 
 
 class MergeSimulation(MergeSignalModel):
@@ -306,13 +385,29 @@ class MergeSimulation(MergeSignalModel):
 
     base: str = Field(..., description="Ref merged into.")
     head: str = Field(..., description="Ref merged from.")
-    merge_base: str | None = Field(default=None, description="Sha of the merge base, or None for unrelated histories.")
+    merge_base: str | None = Field(
+        default=None, description="Sha of the merge base, or None for unrelated histories."
+    )
     clean: bool = Field(..., description="True when the merge would apply without conflicts.")
-    conflicted_files: list[str] = Field(default_factory=list, description="Repository-relative paths git reported as conflicted.")
-    regions: list[ConflictRegion] = Field(default_factory=list, description="Per-region conflict detail; may be shorter than conflicted_files for binary conflicts.")
-    tree_sha: str | None = Field(default=None, description="Sha of the tree written by `git merge-tree --write-tree`, when that path was used.")
-    strategy: str = Field(default="merge-tree", description="Which simulation path ran: 'merge-tree' or 'worktree-fallback'.")
-    up_to_date: bool = Field(default=False, description="True when head is already an ancestor of base — nothing to merge, not an error.")
+    conflicted_files: list[str] = Field(
+        default_factory=list, description="Repository-relative paths git reported as conflicted."
+    )
+    regions: list[ConflictRegion] = Field(
+        default_factory=list,
+        description="Per-region conflict detail; may be shorter than conflicted_files for binary conflicts.",
+    )
+    tree_sha: str | None = Field(
+        default=None,
+        description="Sha of the tree written by `git merge-tree --write-tree`, when that path was used.",
+    )
+    strategy: str = Field(
+        default="merge-tree",
+        description="Which simulation path ran: 'merge-tree' or 'worktree-fallback'.",
+    )
+    up_to_date: bool = Field(
+        default=False,
+        description="True when head is already an ancestor of base — nothing to merge, not an error.",
+    )
 
     @model_validator(mode="after")
     def _check_clean(self) -> MergeSimulation:
@@ -330,14 +425,31 @@ class Finding(MergeSignalModel):
     put model dumps in it, not models.
     """
 
-    signal: str = Field(..., description="Name of the producing signal ('conflicts', 'semantic', 'overlap', 'risk').")
+    signal: str = Field(
+        ...,
+        description="Name of the producing signal ('conflicts', 'semantic', 'overlap', 'risk').",
+    )
     severity: Severity = Field(..., description="How bad this is.")
-    confidence: Confidence = Field(default="medium", description="How sure the heuristic is that this is real.")
-    title: str = Field(..., min_length=1, description="One-line headline, rendered as-is in every format.")
-    detail: str = Field(default="", description="Multi-line explanation, including what the reader should do about it.")
-    file: str | None = Field(default=None, description="Primary repository-relative path this finding points at, when there is one.")
-    line: int | None = Field(default=None, ge=1, description="Primary 1-based line within ``file``.")
-    evidence: dict[str, Any] = Field(default_factory=dict, description="Structured supporting data; JSON-primitive values only.")
+    confidence: Confidence = Field(
+        default="medium", description="How sure the heuristic is that this is real."
+    )
+    title: str = Field(
+        ..., min_length=1, description="One-line headline, rendered as-is in every format."
+    )
+    detail: str = Field(
+        default="",
+        description="Multi-line explanation, including what the reader should do about it.",
+    )
+    file: str | None = Field(
+        default=None,
+        description="Primary repository-relative path this finding points at, when there is one.",
+    )
+    line: int | None = Field(
+        default=None, ge=1, description="Primary 1-based line within ``file``."
+    )
+    evidence: dict[str, Any] = Field(
+        default_factory=dict, description="Structured supporting data; JSON-primitive values only."
+    )
 
     @model_validator(mode="after")
     def _check_line_needs_file(self) -> Finding:
@@ -366,10 +478,21 @@ class Signal(MergeSignalModel):
 
     name: str = Field(..., description="Engine name; one of SIGNAL_NAMES.")
     status: SignalStatus = Field(..., description="Outcome — ok | findings | skipped | error.")
-    findings: list[Finding] = Field(default_factory=list, description="Observations, unordered; renderers sort by Finding.sort_key.")
-    summary: str = Field(default="", description="One-line human summary; the failure reason when status == 'error', the skip reason when 'skipped'.")
-    metadata: dict[str, Any] = Field(default_factory=dict, description="Engine-specific extras (counts, timings, strategy used). JSON-primitive values only.")
-    duration_ms: float | None = Field(default=None, ge=0, description="Wall-clock time the engine took, milliseconds.")
+    findings: list[Finding] = Field(
+        default_factory=list,
+        description="Observations, unordered; renderers sort by Finding.sort_key.",
+    )
+    summary: str = Field(
+        default="",
+        description="One-line human summary; the failure reason when status == 'error', the skip reason when 'skipped'.",
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Engine-specific extras (counts, timings, strategy used). JSON-primitive values only.",
+    )
+    duration_ms: float | None = Field(
+        default=None, ge=0, description="Wall-clock time the engine took, milliseconds."
+    )
 
     @model_validator(mode="after")
     def _check_status_consistency(self) -> Signal:
@@ -403,7 +526,9 @@ class Signal(MergeSignalModel):
         return cls(name=name, status="skipped", summary=reason, metadata=dict(metadata))
 
     @classmethod
-    def from_findings(cls, name: str, findings: list[Finding], summary: str = "", **metadata: Any) -> Signal:
+    def from_findings(
+        cls, name: str, findings: list[Finding], summary: str = "", **metadata: Any
+    ) -> Signal:
         """Build a completed signal, choosing ``ok``/``findings`` from the list."""
         return cls(
             name=name,
@@ -422,10 +547,18 @@ class RiskScore(MergeSignalModel):
     *before* weighting, so the renderer can show the arithmetic.
     """
 
-    score: float = Field(..., ge=0.0, le=100.0, description="Final weighted score, 0 (trivial) to 100 (terrifying).")
+    score: float = Field(
+        ..., ge=0.0, le=100.0, description="Final weighted score, 0 (trivial) to 100 (terrifying)."
+    )
     level: Severity = Field(..., description="Bucketed score for at-a-glance reading.")
-    factors: dict[str, float] = Field(default_factory=dict, description="Normalised 0-1 contribution per factor, before weighting.")
-    weights: dict[str, float] = Field(default_factory=dict, description="Weights actually applied, echoed from config for explainability.")
+    factors: dict[str, float] = Field(
+        default_factory=dict,
+        description="Normalised 0-1 contribution per factor, before weighting.",
+    )
+    weights: dict[str, float] = Field(
+        default_factory=dict,
+        description="Weights actually applied, echoed from config for explainability.",
+    )
 
 
 class Report(MergeSignalModel):
@@ -438,12 +571,27 @@ class Report(MergeSignalModel):
 
     base: str = Field(..., description="Base ref as the user supplied it.")
     head: str = Field(..., description="Head ref as the user supplied it.")
-    merge_base: str | None = Field(default=None, description="Resolved merge-base sha, or None for unrelated histories / unborn branches.")
-    signals: list[Signal] = Field(default_factory=list, description="One entry per enabled engine, in SIGNAL_NAMES order.")
-    risk_score: RiskScore | None = Field(default=None, description="Populated when the risk engine ran successfully.")
-    repo_path: str | None = Field(default=None, description="Absolute path of the analysed repository; normalised away in snapshots.")
-    generated_at: datetime = Field(default_factory=_utcnow, description="UTC timestamp the report was produced.")
-    version: str = Field(default=REPORT_SCHEMA_VERSION, description="Report schema version; bumped on breaking JSON changes.")
+    merge_base: str | None = Field(
+        default=None,
+        description="Resolved merge-base sha, or None for unrelated histories / unborn branches.",
+    )
+    signals: list[Signal] = Field(
+        default_factory=list, description="One entry per enabled engine, in SIGNAL_NAMES order."
+    )
+    risk_score: RiskScore | None = Field(
+        default=None, description="Populated when the risk engine ran successfully."
+    )
+    repo_path: str | None = Field(
+        default=None,
+        description="Absolute path of the analysed repository; normalised away in snapshots.",
+    )
+    generated_at: datetime = Field(
+        default_factory=_utcnow, description="UTC timestamp the report was produced."
+    )
+    version: str = Field(
+        default=REPORT_SCHEMA_VERSION,
+        description="Report schema version; bumped on breaking JSON changes.",
+    )
 
     @property
     def all_findings(self) -> list[Finding]:
@@ -485,12 +633,24 @@ class BranchDiff(MergeSignalModel):
 
     name: str = Field(..., description="Branch name or 'PR #123' label used in findings.")
     head: str = Field(..., description="Head ref/sha of this change set.")
-    base: str = Field(..., description="Base ref/sha it is measured against (usually the same base as the candidate).")
+    base: str = Field(
+        ...,
+        description="Base ref/sha it is measured against (usually the same base as the candidate).",
+    )
     diff: Diff = Field(..., description="Structured diff of this change set.")
-    symbols: list[Symbol] = Field(default_factory=list, description="Symbols this change set *changed* (added, removed, renamed or re-signatured) since its merge base, when indexed. Not every symbol in the touched files: symbol-level overlap means 'we both edited this declaration', and the whole-file reading would make any two edits to one module look like a collision on all of it.")
-    pr_number: int | None = Field(default=None, ge=1, description="GitHub PR number when sourced from --prs.")
-    url: str | None = Field(default=None, description="Web URL of the PR/branch for linking in findings.")
-    author: str | None = Field(default=None, description="Author login/name, for human-readable collision findings.")
+    symbols: list[Symbol] = Field(
+        default_factory=list,
+        description="Symbols this change set *changed* (added, removed, renamed or re-signatured) since its merge base, when indexed. Not every symbol in the touched files: symbol-level overlap means 'we both edited this declaration', and the whole-file reading would make any two edits to one module look like a collision on all of it.",
+    )
+    pr_number: int | None = Field(
+        default=None, ge=1, description="GitHub PR number when sourced from --prs."
+    )
+    url: str | None = Field(
+        default=None, description="Web URL of the PR/branch for linking in findings."
+    )
+    author: str | None = Field(
+        default=None, description="Author login/name, for human-readable collision findings."
+    )
 
 
 class AnalysisContext(MergeSignalModel):
@@ -507,22 +667,48 @@ class AnalysisContext(MergeSignalModel):
     common PR case.
     """
 
-    model_config = ConfigDict(extra="forbid", validate_assignment=True, arbitrary_types_allowed=True)
+    model_config = ConfigDict(
+        extra="forbid", validate_assignment=True, arbitrary_types_allowed=True
+    )
 
     repo_path: str = Field(..., description="Absolute path to the repository working directory.")
     base: str = Field(..., description="Base ref as supplied by the user.")
     head: str = Field(..., description="Head ref as supplied by the user.")
-    merge_base: str | None = Field(default=None, description="Resolved merge-base sha, None for unrelated/unborn histories.")
-    base_diff: Diff | None = Field(default=None, description="Structured diff merge-base -> base (what the base side changed).")
-    head_diff: Diff | None = Field(default=None, description="Structured diff merge-base -> head (what the head side changed).")
-    base_symbols: list[Symbol] = Field(default_factory=list, description="Symbols defined on the base side of the touched files.")
-    head_symbols: list[Symbol] = Field(default_factory=list, description="Symbols defined on the head side of the touched files.")
-    base_references: list[Reference] = Field(default_factory=list, description="Name usages observed on the base side.")
-    head_references: list[Reference] = Field(default_factory=list, description="Name usages observed on the head side.")
-    base_changes: list[SymbolChange] = Field(default_factory=list, description="Symbol changes merge-base -> base.")
-    head_changes: list[SymbolChange] = Field(default_factory=list, description="Symbol changes merge-base -> head.")
-    others: list[BranchDiff] = Field(default_factory=list, description="Other branches/PRs to check for collisions (S3). Empty means 'skip overlap'.")
-    config: Any = Field(default=None, description="The loaded mergesignal.config.Config; typed as Any to keep this module import-free.")
+    merge_base: str | None = Field(
+        default=None, description="Resolved merge-base sha, None for unrelated/unborn histories."
+    )
+    base_diff: Diff | None = Field(
+        default=None, description="Structured diff merge-base -> base (what the base side changed)."
+    )
+    head_diff: Diff | None = Field(
+        default=None, description="Structured diff merge-base -> head (what the head side changed)."
+    )
+    base_symbols: list[Symbol] = Field(
+        default_factory=list, description="Symbols defined on the base side of the touched files."
+    )
+    head_symbols: list[Symbol] = Field(
+        default_factory=list, description="Symbols defined on the head side of the touched files."
+    )
+    base_references: list[Reference] = Field(
+        default_factory=list, description="Name usages observed on the base side."
+    )
+    head_references: list[Reference] = Field(
+        default_factory=list, description="Name usages observed on the head side."
+    )
+    base_changes: list[SymbolChange] = Field(
+        default_factory=list, description="Symbol changes merge-base -> base."
+    )
+    head_changes: list[SymbolChange] = Field(
+        default_factory=list, description="Symbol changes merge-base -> head."
+    )
+    others: list[BranchDiff] = Field(
+        default_factory=list,
+        description="Other branches/PRs to check for collisions (S3). Empty means 'skip overlap'.",
+    )
+    config: Any = Field(
+        default=None,
+        description="The loaded mergesignal.config.Config; typed as Any to keep this module import-free.",
+    )
 
     @property
     def touched_paths(self) -> set[str]:

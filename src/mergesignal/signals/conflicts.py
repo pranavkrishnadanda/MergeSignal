@@ -74,7 +74,9 @@ def analyze(ctx: AnalysisContext) -> Signal:
             metadata=metadata,
         )
 
-    findings = [finding_for_region(region, base=ctx.base, head=ctx.head) for region in simulation.regions]
+    findings = [
+        finding_for_region(region, base=ctx.base, head=ctx.head) for region in simulation.regions
+    ]
 
     covered = {region.file for region in simulation.regions}
     unrepresented = [path for path in simulation.conflicted_files if path not in covered]

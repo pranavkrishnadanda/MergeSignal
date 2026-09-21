@@ -62,11 +62,27 @@ class RiskWeights(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    churn: float = Field(default=0.25, ge=0.0, description="Weight of recent commit churn on the touched paths.")
-    co_change: float = Field(default=0.20, ge=0.0, description="Weight of historical co-change coupling to files not in this diff.")
-    hot_paths: float = Field(default=0.25, ge=0.0, description="Weight of matching a configured hot path glob.")
-    test_coverage: float = Field(default=0.15, ge=0.0, description="Weight of the test-coverage proxy (changed file lacking a sibling test file).")
-    diff_size: float = Field(default=0.15, ge=0.0, description="Weight of raw diff size (files touched and lines churned).")
+    churn: float = Field(
+        default=0.25, ge=0.0, description="Weight of recent commit churn on the touched paths."
+    )
+    co_change: float = Field(
+        default=0.20,
+        ge=0.0,
+        description="Weight of historical co-change coupling to files not in this diff.",
+    )
+    hot_paths: float = Field(
+        default=0.25, ge=0.0, description="Weight of matching a configured hot path glob."
+    )
+    test_coverage: float = Field(
+        default=0.15,
+        ge=0.0,
+        description="Weight of the test-coverage proxy (changed file lacking a sibling test file).",
+    )
+    diff_size: float = Field(
+        default=0.15,
+        ge=0.0,
+        description="Weight of raw diff size (files touched and lines churned).",
+    )
 
     @model_validator(mode="after")
     def _check_nonzero(self) -> RiskWeights:
@@ -95,15 +111,41 @@ class GitHubConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    repo: str | None = Field(default=None, description="'owner/name' slug used by --prs when it cannot be inferred from the remote.")
-    api_url: str = Field(default="https://api.github.com", description="REST API base URL; override for GitHub Enterprise.")
-    comment: bool = Field(default=True, description="Whether the service posts/updates a PR comment after analysis.")
-    check_run: bool = Field(default=False, description="Whether to additionally publish a check run.")
-    token_env: str = Field(default="GITHUB_TOKEN", description="Environment variable holding a PAT, when not using App auth.")
-    app_id_env: str = Field(default="MERGESIGNAL_APP_ID", description="Environment variable holding the GitHub App id.")
-    private_key_env: str = Field(default="MERGESIGNAL_PRIVATE_KEY", description="Environment variable holding the App PEM (contents or path).")
-    webhook_secret_env: str = Field(default="MERGESIGNAL_WEBHOOK_SECRET", description="Environment variable holding the webhook HMAC secret.")
-    max_prs: int = Field(default=20, ge=1, le=200, description="Cap on open PRs fetched for cross-PR overlap, keeping NFR-1 honest.")
+    repo: str | None = Field(
+        default=None,
+        description="'owner/name' slug used by --prs when it cannot be inferred from the remote.",
+    )
+    api_url: str = Field(
+        default="https://api.github.com",
+        description="REST API base URL; override for GitHub Enterprise.",
+    )
+    comment: bool = Field(
+        default=True, description="Whether the service posts/updates a PR comment after analysis."
+    )
+    check_run: bool = Field(
+        default=False, description="Whether to additionally publish a check run."
+    )
+    token_env: str = Field(
+        default="GITHUB_TOKEN",
+        description="Environment variable holding a PAT, when not using App auth.",
+    )
+    app_id_env: str = Field(
+        default="MERGESIGNAL_APP_ID", description="Environment variable holding the GitHub App id."
+    )
+    private_key_env: str = Field(
+        default="MERGESIGNAL_PRIVATE_KEY",
+        description="Environment variable holding the App PEM (contents or path).",
+    )
+    webhook_secret_env: str = Field(
+        default="MERGESIGNAL_WEBHOOK_SECRET",
+        description="Environment variable holding the webhook HMAC secret.",
+    )
+    max_prs: int = Field(
+        default=20,
+        ge=1,
+        le=200,
+        description="Cap on open PRs fetched for cross-PR overlap, keeping NFR-1 honest.",
+    )
 
     @model_validator(mode="after")
     def _check_repo_slug(self) -> GitHubConfig:
@@ -122,11 +164,27 @@ class AnalysisConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    max_files: int = Field(default=500, ge=1, description="Stop indexing symbols past this many changed files; the diff is still reported.")
-    max_file_bytes: int = Field(default=1_000_000, ge=1024, description="Skip tree-sitter parsing of files larger than this; they degrade to textual handling.")
-    history_days: int = Field(default=90, ge=1, description="How far back churn/co-change statistics look.")
-    history_max_commits: int = Field(default=2000, ge=1, description="Hard cap on commits traversed by `git log` for history stats.")
-    git_timeout_seconds: float = Field(default=30.0, gt=0, description="Per-invocation timeout for every git subprocess.")
+    max_files: int = Field(
+        default=500,
+        ge=1,
+        description="Stop indexing symbols past this many changed files; the diff is still reported.",
+    )
+    max_file_bytes: int = Field(
+        default=1_000_000,
+        ge=1024,
+        description="Skip tree-sitter parsing of files larger than this; they degrade to textual handling.",
+    )
+    history_days: int = Field(
+        default=90, ge=1, description="How far back churn/co-change statistics look."
+    )
+    history_max_commits: int = Field(
+        default=2000,
+        ge=1,
+        description="Hard cap on commits traversed by `git log` for history stats.",
+    )
+    git_timeout_seconds: float = Field(
+        default=30.0, gt=0, description="Per-invocation timeout for every git subprocess."
+    )
 
 
 class Config(BaseModel):
@@ -137,14 +195,34 @@ class Config(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled_signals: list[str] = Field(default_factory=lambda: list(SIGNAL_NAMES), description="Which signal engines to run, in SIGNAL_NAMES order regardless of listed order.")
-    severity_threshold: Severity = Field(default="high", description="Findings at or above this severity make the CLI exit 1 (FR-7).")
-    risk_weights: RiskWeights = Field(default_factory=RiskWeights, description="Weights for the risk score factors.")
-    hot_paths: list[str] = Field(default_factory=list, description="Glob patterns (fnmatch/pathlib style, '**' supported) marking high-blast-radius files.")
-    ignore_paths: list[str] = Field(default_factory=lambda: [".git/**"], description="Glob patterns excluded from all analysis, e.g. vendored or generated code.")
-    github: GitHubConfig = Field(default_factory=GitHubConfig, description="GitHub integration settings.")
-    analysis: AnalysisConfig = Field(default_factory=AnalysisConfig, description="Performance and traversal bounds.")
-    source_path: str | None = Field(default=None, description="Absolute path the config was loaded from; None when defaults were used.")
+    enabled_signals: list[str] = Field(
+        default_factory=lambda: list(SIGNAL_NAMES),
+        description="Which signal engines to run, in SIGNAL_NAMES order regardless of listed order.",
+    )
+    severity_threshold: Severity = Field(
+        default="high", description="Findings at or above this severity make the CLI exit 1 (FR-7)."
+    )
+    risk_weights: RiskWeights = Field(
+        default_factory=RiskWeights, description="Weights for the risk score factors."
+    )
+    hot_paths: list[str] = Field(
+        default_factory=list,
+        description="Glob patterns (fnmatch/pathlib style, '**' supported) marking high-blast-radius files.",
+    )
+    ignore_paths: list[str] = Field(
+        default_factory=lambda: [".git/**"],
+        description="Glob patterns excluded from all analysis, e.g. vendored or generated code.",
+    )
+    github: GitHubConfig = Field(
+        default_factory=GitHubConfig, description="GitHub integration settings."
+    )
+    analysis: AnalysisConfig = Field(
+        default_factory=AnalysisConfig, description="Performance and traversal bounds."
+    )
+    source_path: str | None = Field(
+        default=None,
+        description="Absolute path the config was loaded from; None when defaults were used.",
+    )
 
     @model_validator(mode="after")
     def _check_signals(self) -> Config:
@@ -225,7 +303,9 @@ def find_config_file(start: str | os.PathLike[str]) -> Path | None:
     return None
 
 
-def load_config(path: str | os.PathLike[str] | None = None, *, repo_path: str | os.PathLike[str] | None = None) -> Config:
+def load_config(
+    path: str | os.PathLike[str] | None = None, *, repo_path: str | os.PathLike[str] | None = None
+) -> Config:
     """Load configuration, falling back to defaults.
 
     :param path: explicit config file (``--config``). When given and missing,

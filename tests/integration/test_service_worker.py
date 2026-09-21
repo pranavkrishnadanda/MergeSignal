@@ -56,7 +56,13 @@ def pull() -> PullRequest:
 class Recorder:
     """A mock GitHub API that records every request it serves."""
 
-    def __init__(self, *, existing_comments: list[dict[str, Any]] | None = None, pull_payload: dict[str, Any] | None = None, pulls: list[dict[str, Any]] | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        existing_comments: list[dict[str, Any]] | None = None,
+        pull_payload: dict[str, Any] | None = None,
+        pulls: list[dict[str, Any]] | None = None,
+    ) -> None:
         self.calls: list[tuple[str, str]] = []
         self.bodies: list[dict[str, Any]] = []
         self.existing = existing_comments or []
@@ -67,7 +73,11 @@ class Recorder:
             "html_url": f"https://github.com/{SLUG}/pull/7",
             "user": {"login": "octocat"},
             "base": {"ref": "main"},
-            "head": {"ref": "feature", "sha": "", "repo": {"full_name": SLUG, "clone_url": "unused"}},
+            "head": {
+                "ref": "feature",
+                "sha": "",
+                "repo": {"full_name": SLUG, "clone_url": "unused"},
+            },
         }
         self.pulls = pulls if pulls is not None else []
 
@@ -101,7 +111,9 @@ class Recorder:
 
 def test_ref_names_keep_base_and_head_apart(pull: PullRequest) -> None:
     """A fork PR from a branch also called ``main`` must not clobber the base."""
-    fork_pull = PullRequest(number=9, title="t", base_ref="main", head_ref="main", head_sha="", author="a", url="")
+    fork_pull = PullRequest(
+        number=9, title="t", base_ref="main", head_ref="main", head_sha="", author="a", url=""
+    )
     assert base_ref_name(fork_pull) == "main"
     assert head_ref_name(fork_pull) == "pr-9"
     assert base_ref_name(pull) != head_ref_name(pull)
@@ -110,7 +122,9 @@ def test_ref_names_keep_base_and_head_apart(pull: PullRequest) -> None:
 # --------------------------------------------------------- prepare_checkout
 
 
-def test_prepare_checkout_fetches_both_refs(tmp_path: Path, upstream: Path, pull: PullRequest) -> None:
+def test_prepare_checkout_fetches_both_refs(
+    tmp_path: Path, upstream: Path, pull: PullRequest
+) -> None:
     work_dir = tmp_path / "work"
     work_dir.mkdir()
 
@@ -120,25 +134,36 @@ def test_prepare_checkout_fetches_both_refs(tmp_path: Path, upstream: Path, pull
     assert repo.is_repository()
     assert repo.ref_exists("main")
     assert repo.ref_exists("pr-7")
-    assert repo.merge_base("main", "pr-7") is not None, "the merge base must be reachable after the fetch"
+    assert repo.merge_base("main", "pr-7") is not None, (
+        "the merge base must be reachable after the fetch"
+    )
 
 
-def test_prepare_checkout_fetches_a_fork_head(tmp_path: Path, make_builder: Any, pull: PullRequest) -> None:
+def test_prepare_checkout_fetches_a_fork_head(
+    tmp_path: Path, make_builder: Any, pull: PullRequest
+) -> None:
     """A fork PR's head lives in a different repository and needs its own fetch."""
     base = make_builder("upstream")
     base.file("lib.py", "def f():\n    return 1\n").commit("initial")
     base_path = base.build()
 
     fork_path = tmp_path / "fork"
-    Repo(tmp_path).run(["clone", "--quiet", str(base_path), str(fork_path)], cwd=tmp_path, check=True)
+    Repo(tmp_path).run(
+        ["clone", "--quiet", str(base_path), str(fork_path)], cwd=tmp_path, check=True
+    )
     fork = Repo(fork_path)
     fork.run(["checkout", "--quiet", "-b", "feature"], check=True)
     (fork_path / "lib.py").write_text("def f():\n    return 2\n", encoding="utf-8")
-    fork.run(["-c", "user.email=f@x", "-c", "user.name=f", "commit", "--quiet", "-am", "fork edit"], check=True)
+    fork.run(
+        ["-c", "user.email=f@x", "-c", "user.name=f", "commit", "--quiet", "-am", "fork edit"],
+        check=True,
+    )
 
     work_dir = tmp_path / "work"
     work_dir.mkdir()
-    path = prepare_checkout(SLUG, pull, str(work_dir), base_url=str(base_path), head_url=str(fork_path))
+    path = prepare_checkout(
+        SLUG, pull, str(work_dir), base_url=str(base_path), head_url=str(fork_path)
+    )
 
     repo = Repo(path)
     assert repo.file_content_at("main", "lib.py") == "def f():\n    return 1\n"
@@ -146,7 +171,9 @@ def test_prepare_checkout_fetches_a_fork_head(tmp_path: Path, make_builder: Any,
 
 
 def test_prepare_checkout_raises_on_a_missing_ref(tmp_path: Path, upstream: Path) -> None:
-    missing = PullRequest(number=1, title="t", base_ref="main", head_ref="nope", head_sha="", author="a", url="")
+    missing = PullRequest(
+        number=1, title="t", base_ref="main", head_ref="nope", head_sha="", author="a", url=""
+    )
     work_dir = tmp_path / "work"
     work_dir.mkdir()
     with pytest.raises(GitError, match="failed to fetch"):
@@ -154,7 +181,9 @@ def test_prepare_checkout_raises_on_a_missing_ref(tmp_path: Path, upstream: Path
 
 
 def test_prepare_checkout_rejects_a_pr_without_refs(tmp_path: Path) -> None:
-    empty = PullRequest(number=1, title="t", base_ref="", head_ref="", head_sha="", author="a", url="")
+    empty = PullRequest(
+        number=1, title="t", base_ref="", head_ref="", head_sha="", author="a", url=""
+    )
     with pytest.raises(GitError, match="missing base/head refs"):
         prepare_checkout(SLUG, empty, str(tmp_path), base_url="unused")
 
@@ -183,7 +212,9 @@ def test_analyze_pull_request_reports_and_comments(tmp_path: Path, upstream: Pat
     assert result.report.base == "main"
     assert result.report.head == "pr-7"
 
-    assert recorder.methods == ["GET", "GET", "GET", "POST"], "fetch PR, list open PRs for overlap, list comments, create comment"
+    assert recorder.methods == ["GET", "GET", "GET", "POST"], (
+        "fetch PR, list open PRs for overlap, list comments, create comment"
+    )
     assert COMMENT_MARKER in recorder.bodies[-1]["body"]
 
 
@@ -195,17 +226,17 @@ def test_analyze_pull_request_reports_peer_overlap(tmp_path: Path, builder: Repo
     --prs`` could. A second open PR on a colliding branch must now surface
     in the webhook-produced report.
     """
-    core = (
-        "def alpha(x):\n    return x\n"
-        "\n\n"
-        "def beta(y):\n    return y\n"
-    )
+    core = "def alpha(x):\n    return x\n\n\ndef beta(y):\n    return y\n"
     builder.file("core.py", core).commit("initial core")
     builder.branch("feature")
-    builder.file("core.py", core.replace("def alpha(x):", "def alpha(x, verbose):")).commit("candidate widens alpha")
+    builder.file("core.py", core.replace("def alpha(x):", "def alpha(x, verbose):")).commit(
+        "candidate widens alpha"
+    )
     builder.checkout("main")
     builder.branch("peer-work")
-    builder.file("core.py", core.replace("def alpha(x):", "def alpha(x, retries):")).commit("peer widens alpha")
+    builder.file("core.py", core.replace("def alpha(x):", "def alpha(x, retries):")).commit(
+        "peer widens alpha"
+    )
     builder.checkout("main")
     upstream = builder.build()
 
@@ -231,7 +262,9 @@ def test_analyze_pull_request_reports_peer_overlap(tmp_path: Path, builder: Repo
     work_dir = tmp_path / "work"
     work_dir.mkdir()
 
-    result = analyze_pull_request(SLUG, 7, client=recorder.client(), clone_url=str(upstream), work_dir=str(work_dir))
+    result = analyze_pull_request(
+        SLUG, 7, client=recorder.client(), clone_url=str(upstream), work_dir=str(work_dir)
+    )
 
     assert result.ok, result.error
     assert result.report is not None
@@ -244,7 +277,9 @@ def test_analyze_pull_request_reports_peer_overlap(tmp_path: Path, builder: Repo
     assert finding.evidence["symbols"] == ["alpha"]
 
 
-def test_analyze_pull_request_survives_a_peer_listing_failure(tmp_path: Path, upstream: Path) -> None:
+def test_analyze_pull_request_survives_a_peer_listing_failure(
+    tmp_path: Path, upstream: Path
+) -> None:
     """A failed open-PR listing degrades overlap to skipped, never to a failed run."""
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -259,7 +294,9 @@ def test_analyze_pull_request_survives_a_peer_listing_failure(tmp_path: Path, up
     work_dir = tmp_path / "work"
     work_dir.mkdir()
 
-    result = analyze_pull_request(SLUG, 7, client=client, clone_url=str(upstream), work_dir=str(work_dir), post_comment=False)
+    result = analyze_pull_request(
+        SLUG, 7, client=client, clone_url=str(upstream), work_dir=str(work_dir), post_comment=False
+    )
 
     assert result.ok, result.error
     assert result.report is not None
@@ -269,7 +306,9 @@ def test_analyze_pull_request_survives_a_peer_listing_failure(tmp_path: Path, up
 # --------------------------------------------------------------- repo config
 
 
-def _upstream_with_config(builder: RepoBuilder, config_text: str, *, head_config: str | None = None) -> Path:
+def _upstream_with_config(
+    builder: RepoBuilder, config_text: str, *, head_config: str | None = None
+) -> Path:
     """``main`` carries ``.mergesignal.yaml``; ``feature`` diverges, optionally editing it."""
     builder.file("lib.py", "def old_name(x):\n    return x\n")
     builder.file(".mergesignal.yaml", config_text)
@@ -283,17 +322,28 @@ def _upstream_with_config(builder: RepoBuilder, config_text: str, *, head_config
     return builder.build()
 
 
-def test_service_reads_the_repo_config_from_the_base_ref(tmp_path: Path, builder: RepoBuilder) -> None:
+def test_service_reads_the_repo_config_from_the_base_ref(
+    tmp_path: Path, builder: RepoBuilder
+) -> None:
     """The fetch-only clone has no working tree, so the config must be read as a blob."""
     upstream = _upstream_with_config(builder, "enabled_signals: [conflicts, risk]\n")
     work_dir = tmp_path / "work"
     work_dir.mkdir()
 
-    result = analyze_pull_request(SLUG, 7, client=Recorder().client(), clone_url=str(upstream), work_dir=str(work_dir), post_comment=False)
+    result = analyze_pull_request(
+        SLUG,
+        7,
+        client=Recorder().client(),
+        clone_url=str(upstream),
+        work_dir=str(work_dir),
+        post_comment=False,
+    )
 
     assert result.ok, result.error
     assert result.report is not None
-    assert [s.name for s in result.report.signals] == ["conflicts", "risk"], "the repo's enabled_signals must be honoured"
+    assert [s.name for s in result.report.signals] == ["conflicts", "risk"], (
+        "the repo's enabled_signals must be honoured"
+    )
 
 
 def test_head_cannot_override_the_base_config(tmp_path: Path, builder: RepoBuilder) -> None:
@@ -306,20 +356,38 @@ def test_head_cannot_override_the_base_config(tmp_path: Path, builder: RepoBuild
     work_dir = tmp_path / "work"
     work_dir.mkdir()
 
-    result = analyze_pull_request(SLUG, 7, client=Recorder().client(), clone_url=str(upstream), work_dir=str(work_dir), post_comment=False)
+    result = analyze_pull_request(
+        SLUG,
+        7,
+        client=Recorder().client(),
+        clone_url=str(upstream),
+        work_dir=str(work_dir),
+        post_comment=False,
+    )
 
     assert result.ok, result.error
     assert result.report is not None
-    assert [s.name for s in result.report.signals] == ["conflicts"], "head's 'disable everything' edit must be ignored"
+    assert [s.name for s in result.report.signals] == ["conflicts"], (
+        "head's 'disable everything' edit must be ignored"
+    )
 
 
-def test_an_invalid_repo_config_falls_back_to_defaults(tmp_path: Path, builder: RepoBuilder) -> None:
+def test_an_invalid_repo_config_falls_back_to_defaults(
+    tmp_path: Path, builder: RepoBuilder
+) -> None:
     """A broken .mergesignal.yaml on base is a warning + defaults, not a failed run."""
     upstream = _upstream_with_config(builder, "enabled_signals: [not_a_signal]\n")
     work_dir = tmp_path / "work"
     work_dir.mkdir()
 
-    result = analyze_pull_request(SLUG, 7, client=Recorder().client(), clone_url=str(upstream), work_dir=str(work_dir), post_comment=False)
+    result = analyze_pull_request(
+        SLUG,
+        7,
+        client=Recorder().client(),
+        clone_url=str(upstream),
+        work_dir=str(work_dir),
+        post_comment=False,
+    )
 
     assert result.ok, result.error
     assert result.report is not None
@@ -327,12 +395,21 @@ def test_an_invalid_repo_config_falls_back_to_defaults(tmp_path: Path, builder: 
 
 
 def test_analyze_pull_request_updates_an_existing_comment(tmp_path: Path, upstream: Path) -> None:
-    existing = [{"id": 42, "body": f"stale report\n{COMMENT_MARKER}", "user": {"login": "bot"}, "created_at": "2024-01-01T00:00:00Z"}]
+    existing = [
+        {
+            "id": 42,
+            "body": f"stale report\n{COMMENT_MARKER}",
+            "user": {"login": "bot"},
+            "created_at": "2024-01-01T00:00:00Z",
+        }
+    ]
     recorder = Recorder(existing_comments=existing)
     work_dir = tmp_path / "work"
     work_dir.mkdir()
 
-    result = analyze_pull_request(SLUG, 7, client=recorder.client(), clone_url=str(upstream), work_dir=str(work_dir))
+    result = analyze_pull_request(
+        SLUG, 7, client=recorder.client(), clone_url=str(upstream), work_dir=str(work_dir)
+    )
 
     assert result.ok, result.error
     assert result.comment_id == 42
@@ -343,7 +420,9 @@ def test_analyze_pull_request_cleans_up_its_checkout(tmp_path: Path, upstream: P
     work_dir = tmp_path / "work"
     work_dir.mkdir()
 
-    analyze_pull_request(SLUG, 7, client=Recorder().client(), clone_url=str(upstream), work_dir=str(work_dir))
+    analyze_pull_request(
+        SLUG, 7, client=Recorder().client(), clone_url=str(upstream), work_dir=str(work_dir)
+    )
 
     assert list(work_dir.iterdir()) == [], "the temporary checkout must be removed even on success"
 
@@ -353,11 +432,20 @@ def test_analyze_pull_request_can_skip_commenting(tmp_path: Path, upstream: Path
     work_dir = tmp_path / "work"
     work_dir.mkdir()
 
-    result = analyze_pull_request(SLUG, 7, client=recorder.client(), clone_url=str(upstream), work_dir=str(work_dir), post_comment=False)
+    result = analyze_pull_request(
+        SLUG,
+        7,
+        client=recorder.client(),
+        clone_url=str(upstream),
+        work_dir=str(work_dir),
+        post_comment=False,
+    )
 
     assert result.ok, result.error
     assert result.comment_id is None
-    assert recorder.methods == ["GET", "GET"], "the PR fetch and the open-PR listing; nothing was written"
+    assert recorder.methods == ["GET", "GET"], (
+        "the PR fetch and the open-PR listing; nothing was written"
+    )
 
 
 def test_config_can_disable_the_comment(tmp_path: Path, upstream: Path) -> None:
@@ -367,7 +455,14 @@ def test_config_can_disable_the_comment(tmp_path: Path, upstream: Path) -> None:
     config = Config()
     config.github.comment = False
 
-    result = analyze_pull_request(SLUG, 7, client=recorder.client(), clone_url=str(upstream), work_dir=str(work_dir), config=config)
+    result = analyze_pull_request(
+        SLUG,
+        7,
+        client=recorder.client(),
+        clone_url=str(upstream),
+        work_dir=str(work_dir),
+        config=config,
+    )
 
     assert result.ok, result.error
     assert recorder.methods == ["GET", "GET"]
@@ -393,8 +488,12 @@ def test_analyze_pull_request_captures_a_clone_failure(tmp_path: Path) -> None:
 
 
 def test_analyze_pull_request_captures_an_api_failure(tmp_path: Path) -> None:
-    transport = httpx.MockTransport(lambda request: httpx.Response(404, json={"message": "Not Found"}))
-    result = analyze_pull_request(SLUG, 7, client=GitHubClient(SLUG, transport=transport), work_dir=str(tmp_path))
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(404, json={"message": "Not Found"})
+    )
+    result = analyze_pull_request(
+        SLUG, 7, client=GitHubClient(SLUG, transport=transport), work_dir=str(tmp_path)
+    )
 
     assert not result.ok
     assert "GitHubError" in (result.error or "")
@@ -420,7 +519,9 @@ def test_timeout_posts_a_failure_comment(tmp_path: Path, upstream: Path) -> None
     assert recorder.methods[-1] == "POST"
     body = recorder.bodies[-1]["body"]
     assert "timed out" in body
-    assert COMMENT_MARKER in body, "the failure note must carry the marker so the next run replaces it"
+    assert COMMENT_MARKER in body, (
+        "the failure note must carry the marker so the next run replaces it"
+    )
 
 
 # ------------------------------------------------------------------ cleanup

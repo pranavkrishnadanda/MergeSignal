@@ -276,9 +276,7 @@ def test_empty_input_yields_an_empty_diff() -> None:
 
 
 def test_preamble_before_the_first_section_is_ignored() -> None:
-    show_output = (
-        "commit deadbeef\nAuthor: A <a@b.c>\nDate: today\n\n    message\n\n" + MODIFY_DIFF
-    )
+    show_output = "commit deadbeef\nAuthor: A <a@b.c>\nDate: today\n\n    message\n\n" + MODIFY_DIFF
     assert [f.path for f in parse_diff(show_output).files] == ["src/app.py"]
 
 

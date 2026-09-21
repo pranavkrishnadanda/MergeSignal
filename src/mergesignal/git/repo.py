@@ -40,7 +40,14 @@ class GitError(RuntimeError):
     or genuinely broken.
     """
 
-    def __init__(self, message: str, *, args: list[str] | None = None, returncode: int | None = None, stderr: str = "") -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        args: list[str] | None = None,
+        returncode: int | None = None,
+        stderr: str = "",
+    ) -> None:
         super().__init__(message)
         self.message = message
         self.git_args = list(args or [])
@@ -123,7 +130,13 @@ class Repo:
     before cloning into it. Use :meth:`is_repository` to check.
     """
 
-    def __init__(self, path: str | os.PathLike[str], *, timeout: float = DEFAULT_TIMEOUT_SECONDS, git_binary: str = "git") -> None:
+    def __init__(
+        self,
+        path: str | os.PathLike[str],
+        *,
+        timeout: float = DEFAULT_TIMEOUT_SECONDS,
+        git_binary: str = "git",
+    ) -> None:
         self.path = Path(path).expanduser()
         self.timeout = float(timeout)
         self.git_binary = git_binary
@@ -137,7 +150,15 @@ class Repo:
 
     # ------------------------------------------------------------------ core
 
-    def run(self, args: list[str], *, check: bool = True, timeout: float | None = None, cwd: str | os.PathLike[str] | None = None, input_text: str | None = None) -> str:
+    def run(
+        self,
+        args: list[str],
+        *,
+        check: bool = True,
+        timeout: float | None = None,
+        cwd: str | os.PathLike[str] | None = None,
+        input_text: str | None = None,
+    ) -> str:
         """Run ``git <args>`` in the repository and return stdout.
 
         :param args: git arguments, *not* including the ``git`` binary itself.
@@ -156,9 +177,19 @@ class Repo:
 
         Trailing newlines are stripped, since virtually every caller wants that.
         """
-        return self.run_result(args, check=check, timeout=timeout, cwd=cwd, input_text=input_text).stdout
+        return self.run_result(
+            args, check=check, timeout=timeout, cwd=cwd, input_text=input_text
+        ).stdout
 
-    def run_result(self, args: list[str], *, check: bool = False, timeout: float | None = None, cwd: str | os.PathLike[str] | None = None, input_text: str | None = None) -> GitResult:
+    def run_result(
+        self,
+        args: list[str],
+        *,
+        check: bool = False,
+        timeout: float | None = None,
+        cwd: str | os.PathLike[str] | None = None,
+        input_text: str | None = None,
+    ) -> GitResult:
         """Like :meth:`run` but returns the full :class:`GitResult`.
 
         Defaults to ``check=False`` because the whole point of reaching for this
@@ -195,7 +226,12 @@ class Repo:
             stderr=completed.stderr or "",
         )
         if check and not result.ok:
-            raise GitError("git command failed", args=result.args, returncode=result.returncode, stderr=result.stderr)
+            raise GitError(
+                "git command failed",
+                args=result.args,
+                returncode=result.returncode,
+                stderr=result.stderr,
+            )
         return result
 
     # ------------------------------------------------------------ inspection
@@ -255,7 +291,12 @@ class Repo:
         """
         result = self.run_result(["rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"])
         if not result.ok or not result.stdout:
-            raise GitError(f"unknown or unborn ref: {ref!r}", args=result.args, returncode=result.returncode, stderr=result.stderr)
+            raise GitError(
+                f"unknown or unborn ref: {ref!r}",
+                args=result.args,
+                returncode=result.returncode,
+                stderr=result.stderr,
+            )
         return result.stdout.strip()
 
     def ref_exists(self, ref: str) -> bool:
@@ -281,7 +322,12 @@ class Repo:
             return result.stdout.strip()
         if result.returncode == 1:
             return None
-        raise GitError("git merge-base failed", args=result.args, returncode=result.returncode, stderr=result.stderr)
+        raise GitError(
+            "git merge-base failed",
+            args=result.args,
+            returncode=result.returncode,
+            stderr=result.stderr,
+        )
 
     def is_ancestor(self, maybe_ancestor: str, descendant: str) -> bool:
         """``True`` when ``maybe_ancestor`` is reachable from ``descendant``.
@@ -292,7 +338,12 @@ class Repo:
         result = self.run_result(["merge-base", "--is-ancestor", maybe_ancestor, descendant])
         if result.returncode in (0, 1):
             return result.ok
-        raise GitError("git merge-base --is-ancestor failed", args=result.args, returncode=result.returncode, stderr=result.stderr)
+        raise GitError(
+            "git merge-base --is-ancestor failed",
+            args=result.args,
+            returncode=result.returncode,
+            stderr=result.stderr,
+        )
 
     def current_branch(self) -> str | None:
         """Name of the checked-out branch, or ``None`` on a detached HEAD.
@@ -316,9 +367,21 @@ class Repo:
         """
         prefix = "refs/remotes/" if remote else "refs/heads/"
         ref_pattern = f"{prefix}{pattern}" if pattern else prefix
-        result = self.run_result(["for-each-ref", "--sort=-committerdate", "--format=%(refname:short) %(symref)", ref_pattern])
+        result = self.run_result(
+            [
+                "for-each-ref",
+                "--sort=-committerdate",
+                "--format=%(refname:short) %(symref)",
+                ref_pattern,
+            ]
+        )
         if not result.ok:
-            raise GitError("git for-each-ref failed", args=result.args, returncode=result.returncode, stderr=result.stderr)
+            raise GitError(
+                "git for-each-ref failed",
+                args=result.args,
+                returncode=result.returncode,
+                stderr=result.stderr,
+            )
         branches: list[str] = []
         for line in result.stdout.splitlines():
             line = line.rstrip()
@@ -332,7 +395,9 @@ class Repo:
 
     # ----------------------------------------------------------------- trees
 
-    def diff_names(self, base: str, head: str, *, find_renames: bool = True, merge_base: bool = False) -> list[str]:
+    def diff_names(
+        self, base: str, head: str, *, find_renames: bool = True, merge_base: bool = False
+    ) -> list[str]:
         """Paths changed between two refs.
 
         :param find_renames: pass ``-M`` so renames are detected; the returned
@@ -351,7 +416,12 @@ class Repo:
         args.extend([f"{base}...{head}"] if merge_base else [base, head])
         result = self.run_result(args)
         if not result.ok:
-            raise GitError("git diff --name-status failed", args=result.args, returncode=result.returncode, stderr=result.stderr)
+            raise GitError(
+                "git diff --name-status failed",
+                args=result.args,
+                returncode=result.returncode,
+                stderr=result.stderr,
+            )
         return sorted(_parse_name_status_z(result.stdout))
 
     def file_content_at(self, ref: str, path: str) -> str | None:
@@ -387,7 +457,9 @@ class Repo:
                 check=False,
             )
         except subprocess.TimeoutExpired as exc:
-            raise GitTimeoutError(f"git show timed out after {exc.timeout:g}s", args=argv[1:]) from exc
+            raise GitTimeoutError(
+                f"git show timed out after {exc.timeout:g}s", args=argv[1:]
+            ) from exc
         except OSError as exc:
             raise GitError(f"failed to execute git: {exc}", args=argv[1:]) from exc
         if completed.returncode == 0:
@@ -396,7 +468,12 @@ class Repo:
         # git show fails the same way for "bad ref" and "path absent at ref", so
         # disambiguate by asking whether the ref itself resolves.
         if not self.ref_exists(ref):
-            raise GitError(f"unknown ref: {ref!r}", args=argv[1:], returncode=completed.returncode, stderr=stderr)
+            raise GitError(
+                f"unknown ref: {ref!r}",
+                args=argv[1:],
+                returncode=completed.returncode,
+                stderr=stderr,
+            )
         return None
 
     def list_files_at(self, ref: str, *, pattern: str | None = None) -> list[str]:
@@ -411,7 +488,12 @@ class Repo:
             args.extend(["--", pattern])
         result = self.run_result(args)
         if not result.ok:
-            raise GitError("git ls-tree failed", args=result.args, returncode=result.returncode, stderr=result.stderr)
+            raise GitError(
+                "git ls-tree failed",
+                args=result.args,
+                returncode=result.returncode,
+                stderr=result.stderr,
+            )
         return [p for p in result.stdout.split("\0") if p]
 
     def show_ref_message(self, ref: str) -> str:

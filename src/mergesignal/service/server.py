@@ -39,7 +39,9 @@ from mergesignal.github.app import SIGNATURE_HEADER, verify_webhook
 # module is still lazy — the CLI only does it inside ``mergesignal serve``.
 
 #: ``pull_request`` actions that trigger an analysis run.
-HANDLED_ACTIONS: frozenset[str] = frozenset({"opened", "synchronize", "reopened", "ready_for_review"})
+HANDLED_ACTIONS: frozenset[str] = frozenset(
+    {"opened", "synchronize", "reopened", "ready_for_review"}
+)
 
 #: Header naming the webhook event type.
 EVENT_HEADER = "X-GitHub-Event"
@@ -109,7 +111,9 @@ class ServiceSettings:
         try:
             run_timeout = float(timeout) if timeout else 300.0
         except ValueError as exc:
-            raise RuntimeError(f"MERGESIGNAL_RUN_TIMEOUT must be a number, got {timeout!r}") from exc
+            raise RuntimeError(
+                f"MERGESIGNAL_RUN_TIMEOUT must be a number, got {timeout!r}"
+            ) from exc
 
         return cls(
             app_id=os.environ.get("MERGESIGNAL_APP_ID"),
@@ -138,7 +142,9 @@ class ServiceSettings:
             return None
         from mergesignal.github.app import GitHubAppAuth
 
-        auth = GitHubAppAuth(self.app_id, self.private_key, api_url=self.api_url, transport=self.transport)
+        auth = GitHubAppAuth(
+            self.app_id, self.private_key, api_url=self.api_url, transport=self.transport
+        )
         return auth.token_for_repo(repo_slug)
 
 
@@ -173,21 +179,31 @@ def create_app(settings: ServiceSettings | None = None) -> Any:
         raw = await request.body()
         signature = request.headers.get(SIGNATURE_HEADER)
         if not verify_webhook(raw, signature, config.webhook_secret):
-            logger.warning("rejected webhook delivery %s: bad signature", request.headers.get(DELIVERY_HEADER))
-            return JSONResponse({"status": "rejected", "reason": "invalid signature"}, status_code=401)
+            logger.warning(
+                "rejected webhook delivery %s: bad signature", request.headers.get(DELIVERY_HEADER)
+            )
+            return JSONResponse(
+                {"status": "rejected", "reason": "invalid signature"}, status_code=401
+            )
 
         event = request.headers.get(EVENT_HEADER, "")
         if event == "ping":
             return JSONResponse({"status": "pong", "version": __version__}, status_code=200)
         if event != "pull_request":
-            return JSONResponse({"status": "ignored", "reason": f"unhandled event {event!r}"}, status_code=200)
+            return JSONResponse(
+                {"status": "ignored", "reason": f"unhandled event {event!r}"}, status_code=200
+            )
 
         try:
             payload = json.loads(raw or b"{}")
         except ValueError:
-            return JSONResponse({"status": "rejected", "reason": "body is not valid JSON"}, status_code=400)
+            return JSONResponse(
+                {"status": "rejected", "reason": "body is not valid JSON"}, status_code=400
+            )
         if not isinstance(payload, dict):
-            return JSONResponse({"status": "rejected", "reason": "body is not a JSON object"}, status_code=400)
+            return JSONResponse(
+                {"status": "rejected", "reason": "body is not a JSON object"}, status_code=400
+            )
 
         skip = classify_event(payload, config)
         if skip is not None:
@@ -196,7 +212,12 @@ def create_app(settings: ServiceSettings | None = None) -> Any:
         repo_slug, pr_number = _target(payload)
         background.add_task(handle_pull_request_event, payload, config)
         return JSONResponse(
-            {"status": "accepted", "repo": repo_slug, "pr": pr_number, "action": payload.get("action")},
+            {
+                "status": "accepted",
+                "repo": repo_slug,
+                "pr": pr_number,
+                "action": payload.get("action"),
+            },
             status_code=202,
         )
 
@@ -237,7 +258,9 @@ def handle_pull_request_event(payload: dict[str, Any], settings: ServiceSettings
         return skip
 
     repo_slug, pr_number = _target(payload)
-    if repo_slug is None or pr_number is None:  # pragma: no cover - classify_event already rejected this
+    if (
+        repo_slug is None or pr_number is None
+    ):  # pragma: no cover - classify_event already rejected this
         return {"status": "ignored", "reason": "payload carries no repository"}
 
     from mergesignal.service.worker import analyze_pull_request
@@ -246,7 +269,12 @@ def handle_pull_request_event(payload: dict[str, Any], settings: ServiceSettings
         token = settings.token_for(repo_slug)
     except Exception as exc:
         logger.exception("could not obtain a token for %s", repo_slug)
-        return {"status": "error", "repo": repo_slug, "pr": pr_number, "error": f"{type(exc).__name__}: {exc}"}
+        return {
+            "status": "error",
+            "repo": repo_slug,
+            "pr": pr_number,
+            "error": f"{type(exc).__name__}: {exc}",
+        }
 
     result = analyze_pull_request(
         repo_slug,
@@ -289,7 +317,9 @@ def _target(payload: dict[str, Any]) -> tuple[str | None, int | None]:
     return (slug if isinstance(slug, str) and slug else None), pr_number
 
 
-def run(host: str = "127.0.0.1", port: int = 8000, *, reload: bool = False, log_level: str = "info") -> None:
+def run(
+    host: str = "127.0.0.1", port: int = 8000, *, reload: bool = False, log_level: str = "info"
+) -> None:
     """Run the uvicorn server. Called by ``mergesignal serve``.
 
     Settings are validated *before* uvicorn starts so a missing webhook secret
@@ -298,7 +328,9 @@ def run(host: str = "127.0.0.1", port: int = 8000, *, reload: bool = False, log_
     import uvicorn
 
     ServiceSettings.from_env()  # fail fast on a missing webhook secret
-    logging.basicConfig(level=log_level.upper(), format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    logging.basicConfig(
+        level=log_level.upper(), format="%(asctime)s %(levelname)s %(name)s %(message)s"
+    )
     uvicorn.run(
         "mergesignal.service.server:create_app",
         factory=True,

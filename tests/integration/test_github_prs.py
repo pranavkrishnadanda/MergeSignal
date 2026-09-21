@@ -34,7 +34,11 @@ def pull_json(number: int, head_ref: str, head_sha: str = "") -> dict[str, Any]:
         "html_url": f"https://github.com/{SLUG}/pull/{number}",
         "user": {"login": "octocat"},
         "base": {"ref": "main"},
-        "head": {"ref": head_ref, "sha": head_sha, "repo": {"full_name": SLUG, "clone_url": "https://github.com/acme/widgets.git"}},
+        "head": {
+            "ref": head_ref,
+            "sha": head_sha,
+            "repo": {"full_name": SLUG, "clone_url": "https://github.com/acme/widgets.git"},
+        },
     }
 
 
@@ -73,7 +77,9 @@ def config_for(slug: str | None = SLUG) -> Config:
     return config
 
 
-def test_collect_others_builds_branch_diffs_for_open_prs(repo_with_feature: Path, mock_github: Callable[..., None]) -> None:
+def test_collect_others_builds_branch_diffs_for_open_prs(
+    repo_with_feature: Path, mock_github: Callable[..., None]
+) -> None:
     mock_github([pull_json(11, "feature")])
     repo = Repo(repo_with_feature)
 
@@ -88,7 +94,9 @@ def test_collect_others_builds_branch_diffs_for_open_prs(repo_with_feature: Path
     assert other.diff.paths == {"b.py"}
 
 
-def test_specific_pr_numbers_are_fetched_individually(repo_with_feature: Path, mock_github: Callable[..., None]) -> None:
+def test_specific_pr_numbers_are_fetched_individually(
+    repo_with_feature: Path, mock_github: Callable[..., None]
+) -> None:
     mock_github([pull_json(11, "feature")])
     repo = Repo(repo_with_feature)
 
@@ -97,7 +105,9 @@ def test_specific_pr_numbers_are_fetched_individually(repo_with_feature: Path, m
     assert [o.pr_number for o in others] == [11]
 
 
-def test_pr_head_uses_the_sha_when_it_is_local(repo_with_feature: Path, mock_github: Callable[..., None]) -> None:
+def test_pr_head_uses_the_sha_when_it_is_local(
+    repo_with_feature: Path, mock_github: Callable[..., None]
+) -> None:
     repo = Repo(repo_with_feature)
     sha = repo.rev_parse("feature")
     mock_github([pull_json(12, "some-remote-name", head_sha=sha)])
@@ -107,7 +117,9 @@ def test_pr_head_uses_the_sha_when_it_is_local(repo_with_feature: Path, mock_git
     assert [o.head for o in others] == [sha]
 
 
-def test_pr_without_local_objects_is_skipped(repo_with_feature: Path, mock_github: Callable[..., None], capsys: pytest.CaptureFixture[str]) -> None:
+def test_pr_without_local_objects_is_skipped(
+    repo_with_feature: Path, mock_github: Callable[..., None], capsys: pytest.CaptureFixture[str]
+) -> None:
     """NFR-2: we do not fetch on the user's behalf, we tell them to."""
     mock_github([pull_json(13, "never-fetched")])
     repo = Repo(repo_with_feature)
@@ -118,17 +130,23 @@ def test_pr_without_local_objects_is_skipped(repo_with_feature: Path, mock_githu
     assert "git fetch" in capsys.readouterr().err
 
 
-def test_unknown_pr_value_warns_and_continues(repo_with_feature: Path, mock_github: Callable[..., None], capsys: pytest.CaptureFixture[str]) -> None:
+def test_unknown_pr_value_warns_and_continues(
+    repo_with_feature: Path, mock_github: Callable[..., None], capsys: pytest.CaptureFixture[str]
+) -> None:
     mock_github([pull_json(11, "feature")])
     repo = Repo(repo_with_feature)
 
-    others = cli.collect_others(repo, config_for(), branches=None, prs=["not-a-number", "open"], base="main")
+    others = cli.collect_others(
+        repo, config_for(), branches=None, prs=["not-a-number", "open"], base="main"
+    )
 
     assert [o.pr_number for o in others] == [11]
     assert "unrecognised --prs value" in capsys.readouterr().err
 
 
-def test_api_failure_degrades_to_no_overlap_input(repo_with_feature: Path, mock_github: Callable[..., None], capsys: pytest.CaptureFixture[str]) -> None:
+def test_api_failure_degrades_to_no_overlap_input(
+    repo_with_feature: Path, mock_github: Callable[..., None], capsys: pytest.CaptureFixture[str]
+) -> None:
     """FR-8: GitHub being unreachable must never fail the whole analysis."""
     mock_github([])  # /pulls/99 -> 404
     repo = Repo(repo_with_feature)

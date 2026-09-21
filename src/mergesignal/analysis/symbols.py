@@ -265,7 +265,9 @@ _JAVA = LanguageSpec(
     class_types=frozenset(
         {"class_declaration", "interface_declaration", "enum_declaration", "record_declaration"}
     ),
-    function_types=frozenset({"method_declaration", "constructor_declaration", "lambda_expression"}),
+    function_types=frozenset(
+        {"method_declaration", "constructor_declaration", "lambda_expression"}
+    ),
     param_name_fields=(("formal_parameter", "name"), ("spread_parameter", "name")),
     return_fields=("type",),
 )
@@ -686,9 +688,11 @@ def _python_variable(node: Any, ctx: _Ctx) -> None:
     left = _field(node, "left")
     if left is None:
         return
-    targets = [left] if left.type == "identifier" else [
-        child for child in left.named_children if child.type == "identifier"
-    ]
+    targets = (
+        [left]
+        if left.type == "identifier"
+        else [child for child in left.named_children if child.type == "identifier"]
+    )
     if _inside_function(node, ctx):
         for target in targets:
             ctx.bind(target)
@@ -833,7 +837,7 @@ def _go_method(node: Any, ctx: _Ctx) -> None:
 def _go_import(node: Any, ctx: _Ctx) -> None:
     """``import_spec``: bound name is the alias, else the final path segment."""
     path_node = _field(node, "path")
-    module = ctx.text(path_node).strip("\"`") if path_node is not None else None
+    module = ctx.text(path_node).strip('"`') if path_node is not None else None
     alias = _field(node, "name")
     if alias is not None:
         ctx.add_symbol(alias, "import", declaration=node, parent=module)
@@ -1103,7 +1107,9 @@ def _sort_symbols(symbols: list[Symbol]) -> list[Symbol]:
 
 def _sort_references(references: list[Reference]) -> list[Reference]:
     """Deterministic order: line, then column, then name."""
-    return sorted(references, key=lambda r: (r.line, r.column if r.column is not None else -1, r.name))
+    return sorted(
+        references, key=lambda r: (r.line, r.column if r.column is not None else -1, r.name)
+    )
 
 
 def extract(source: str, path: str, language: str | None) -> tuple[list[Symbol], list[Reference]]:

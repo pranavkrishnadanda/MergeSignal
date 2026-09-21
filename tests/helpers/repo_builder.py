@@ -125,7 +125,13 @@ class RepoBuilder:
         ):
             self.git("config", key, value)
 
-    def _env(self, *, timestamp: datetime | None = None, name: str | None = None, email: str | None = None) -> dict[str, str]:
+    def _env(
+        self,
+        *,
+        timestamp: datetime | None = None,
+        name: str | None = None,
+        email: str | None = None,
+    ) -> dict[str, str]:
         """Environment forcing a deterministic identity and clock onto git."""
         when = (timestamp or self._clock).isoformat()
         author_name = name or self.author_name
@@ -143,7 +149,13 @@ class RepoBuilder:
             "GIT_COMMITTER_DATE": when,
         }
 
-    def git(self, *args: str, check: bool = True, env: dict[str, str] | None = None, input_text: str | None = None) -> str:
+    def git(
+        self,
+        *args: str,
+        check: bool = True,
+        env: dict[str, str] | None = None,
+        input_text: str | None = None,
+    ) -> str:
         """Run a raw git command in the repository and return stripped stdout.
 
         Exposed so tests can reach for anything the builder does not wrap.
@@ -162,7 +174,9 @@ class RepoBuilder:
             check=False,
         )
         if check and completed.returncode != 0:
-            raise RepoBuilderError(f"git {' '.join(args)} failed ({completed.returncode}): {completed.stderr.strip()}")
+            raise RepoBuilderError(
+                f"git {' '.join(args)} failed ({completed.returncode}): {completed.stderr.strip()}"
+            )
         return (completed.stdout or "").strip()
 
     # ------------------------------------------------------------- authoring
@@ -220,7 +234,14 @@ class RepoBuilder:
         self._staged.update({src, dst})
         return self
 
-    def commit(self, message: str = "commit", *, author: tuple[str, str] | None = None, timestamp: datetime | None = None, allow_empty: bool = False) -> RepoBuilder:
+    def commit(
+        self,
+        message: str = "commit",
+        *,
+        author: tuple[str, str] | None = None,
+        timestamp: datetime | None = None,
+        allow_empty: bool = False,
+    ) -> RepoBuilder:
         """Commit everything staged so far and advance the deterministic clock.
 
         :param author: ``(name, email)`` override for this commit only, so
@@ -238,7 +259,13 @@ class RepoBuilder:
         self.git(*args, env=self._env(timestamp=when, name=name, email=email))
         sha = self.git("rev-parse", "HEAD")
         self._commits.append(
-            CommitRecord(sha=sha, message=message, branch=self.current_branch() or "", paths=sorted(self._staged), timestamp=when)
+            CommitRecord(
+                sha=sha,
+                message=message,
+                branch=self.current_branch() or "",
+                paths=sorted(self._staged),
+                timestamp=when,
+            )
         )
         self._staged.clear()
         if timestamp is None:
@@ -251,7 +278,9 @@ class RepoBuilder:
 
     # -------------------------------------------------------------- branches
 
-    def branch(self, name: str, *, checkout: bool = True, start_point: str | None = None) -> RepoBuilder:
+    def branch(
+        self, name: str, *, checkout: bool = True, start_point: str | None = None
+    ) -> RepoBuilder:
         """Create a branch and (by default) switch to it.
 
         :param start_point: branch from this ref instead of ``HEAD``.
@@ -287,7 +316,14 @@ class RepoBuilder:
         self.git(*args, env=self._env())
         return self
 
-    def merge(self, ref: str, *, message: str | None = None, allow_conflict: bool = False, no_ff: bool = True) -> RepoBuilder:
+    def merge(
+        self,
+        ref: str,
+        *,
+        message: str | None = None,
+        allow_conflict: bool = False,
+        no_ff: bool = True,
+    ) -> RepoBuilder:
         """Merge ``ref`` into the current branch.
 
         :param allow_conflict: when true, a conflicting merge leaves the
@@ -374,15 +410,21 @@ class RepoBuilder:
         self.branch("feature")
         self.file("lib.py", "def new_name(x):\n    return x\n").commit("rename function")
         self.checkout(self.default_branch)
-        return self.file("caller.py", "from lib import old_name\n\nold_name(1)\n").commit("add caller")
+        return self.file("caller.py", "from lib import old_name\n\nold_name(1)\n").commit(
+            "add caller"
+        )
 
     def scenario_signature_change(self) -> RepoBuilder:
         """One branch changes a signature; the other adds callers of the old one."""
         self.file("lib.py", "def compute(a):\n    return a\n").commit("add lib")
         self.branch("feature")
-        self.file("lib.py", "def compute(a, b, c):\n    return a + b + c\n").commit("widen signature")
+        self.file("lib.py", "def compute(a, b, c):\n    return a + b + c\n").commit(
+            "widen signature"
+        )
         self.checkout(self.default_branch)
-        return self.file("caller.py", "from lib import compute\n\ncompute(1)\n").commit("add caller")
+        return self.file("caller.py", "from lib import compute\n\ncompute(1)\n").commit(
+            "add caller"
+        )
 
     def scenario_binary_file(self) -> RepoBuilder:
         """A binary blob changed on both sides — must be reported, never parsed."""
@@ -396,10 +438,19 @@ class RepoBuilder:
         """Changes confined to a language with no grammar: textual fallback only."""
         self.file("script.zzz", "BEGIN\n  do thing\nEND\n").commit("add script")
         self.branch("feature")
-        return self.file("script.zzz", "BEGIN\n  do other thing\nEND\n").commit("edit script").checkout(self.default_branch)
+        return (
+            self.file("script.zzz", "BEGIN\n  do other thing\nEND\n")
+            .commit("edit script")
+            .checkout(self.default_branch)
+        )
 
 
-def build_repo(path: str | os.PathLike[str], files: dict[str, str] | None = None, *, message: str = "initial commit") -> Path:
+def build_repo(
+    path: str | os.PathLike[str],
+    files: dict[str, str] | None = None,
+    *,
+    message: str = "initial commit",
+) -> Path:
     """One-liner for the common "repo with some files and one commit" case."""
     builder = RepoBuilder(path)
     for file_path, content in (files or {"README.md": "# test\n"}).items():

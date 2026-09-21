@@ -156,7 +156,15 @@ def client(settings: ServiceSettings) -> TestClient:
     return TestClient(create_app(settings))
 
 
-def post_webhook(client: TestClient, payload: dict[str, Any], *, secret: str = SECRET, event: str = "pull_request", signature: str | None = None, body: bytes | None = None) -> httpx.Response:
+def post_webhook(
+    client: TestClient,
+    payload: dict[str, Any],
+    *,
+    secret: str = SECRET,
+    event: str = "pull_request",
+    signature: str | None = None,
+    body: bytes | None = None,
+) -> httpx.Response:
     """Sign and POST a webhook delivery exactly as GitHub would."""
     raw = body if body is not None else json.dumps(payload).encode()
     headers = {
@@ -210,8 +218,17 @@ def test_valid_signature_is_accepted_and_analysed(client: TestClient, github: Fa
     assert COMMENT_MARKER in body
 
 
-def test_existing_comment_is_updated_not_duplicated(settings: ServiceSettings, github: FakeGitHub) -> None:
-    github.existing = [{"id": 42, "body": f"previous report\n{COMMENT_MARKER}", "user": {"login": "bot"}, "created_at": "2024-01-01T00:00:00Z"}]
+def test_existing_comment_is_updated_not_duplicated(
+    settings: ServiceSettings, github: FakeGitHub
+) -> None:
+    github.existing = [
+        {
+            "id": 42,
+            "body": f"previous report\n{COMMENT_MARKER}",
+            "user": {"login": "bot"},
+            "created_at": "2024-01-01T00:00:00Z",
+        }
+    ]
     payload = copy.deepcopy(WEBHOOK_PAYLOAD)
     payload["action"] = "synchronize"
 
@@ -297,7 +314,9 @@ def test_draft_pull_requests_are_ignored(client: TestClient, github: FakeGitHub)
     assert github.calls == []
 
 
-def test_ready_for_review_runs_even_though_the_flag_lags(client: TestClient, github: FakeGitHub) -> None:
+def test_ready_for_review_runs_even_though_the_flag_lags(
+    client: TestClient, github: FakeGitHub
+) -> None:
     """GitHub sometimes still reports ``draft: true`` on the ready_for_review event."""
     payload = copy.deepcopy(WEBHOOK_PAYLOAD)
     payload["action"] = "ready_for_review"
@@ -339,7 +358,9 @@ def test_from_env_requires_a_webhook_secret() -> None:
 def test_from_env_reads_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MERGESIGNAL_WEBHOOK_SECRET", SECRET)
     monkeypatch.setenv("MERGESIGNAL_APP_ID", "123")
-    monkeypatch.setenv("MERGESIGNAL_PRIVATE_KEY", "-----BEGIN PRIVATE KEY-----\nx\n-----END PRIVATE KEY-----")
+    monkeypatch.setenv(
+        "MERGESIGNAL_PRIVATE_KEY", "-----BEGIN PRIVATE KEY-----\nx\n-----END PRIVATE KEY-----"
+    )
 
     settings = ServiceSettings.from_env()
 
@@ -383,7 +404,10 @@ def test_handle_pull_request_event_short_circuits_on_an_ignored_action() -> None
     payload = copy.deepcopy(WEBHOOK_PAYLOAD)
     payload["action"] = "closed"
 
-    assert handle_pull_request_event(payload, settings) == {"status": "ignored", "reason": "unhandled action 'closed'"}
+    assert handle_pull_request_event(payload, settings) == {
+        "status": "ignored",
+        "reason": "unhandled action 'closed'",
+    }
 
 
 def test_handle_pull_request_event_reports_a_failed_run(settings: ServiceSettings) -> None:

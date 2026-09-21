@@ -38,7 +38,9 @@ from tests.helpers.repo_builder import RepoBuilder
 pytestmark = pytest.mark.integration
 
 #: Run the same assertions through both code paths.
-BOTH_STRATEGIES = pytest.mark.parametrize("prefer_merge_tree", [pytest.param(True, marks=requires_merge_tree), False])
+BOTH_STRATEGIES = pytest.mark.parametrize(
+    "prefer_merge_tree", [pytest.param(True, marks=requires_merge_tree), False]
+)
 
 
 def _strategy(prefer_merge_tree: bool) -> str:
@@ -73,7 +75,9 @@ def test_clean_merge_reports_no_conflicts(two_branch_repo: Path, prefer_merge_tr
 
 
 @BOTH_STRATEGIES
-def test_simulation_never_mutates_the_repository(conflict_repo: Path, prefer_merge_tree: bool) -> None:
+def test_simulation_never_mutates_the_repository(
+    conflict_repo: Path, prefer_merge_tree: bool
+) -> None:
     """NFR-2: no working-tree, HEAD or worktree-list change, even on conflict."""
     repo = Repo(conflict_repo)
     before = _snapshot(repo)
@@ -87,7 +91,9 @@ def test_simulation_never_mutates_the_repository(conflict_repo: Path, prefer_mer
 
 
 @BOTH_STRATEGIES
-def test_same_line_edits_produce_conflict_regions(conflict_repo: Path, prefer_merge_tree: bool) -> None:
+def test_same_line_edits_produce_conflict_regions(
+    conflict_repo: Path, prefer_merge_tree: bool
+) -> None:
     repo = Repo(conflict_repo)
 
     sim = simulate_merge(repo, "main", "feature", prefer_merge_tree=prefer_merge_tree)
@@ -141,7 +147,9 @@ def test_merge_tree_records_the_written_tree(conflict_repo: Path) -> None:
 def test_regions_can_be_extraction_free(conflict_repo: Path, prefer_merge_tree: bool) -> None:
     repo = Repo(conflict_repo)
 
-    sim = simulate_merge(repo, "main", "feature", prefer_merge_tree=prefer_merge_tree, extract_regions=False)
+    sim = simulate_merge(
+        repo, "main", "feature", prefer_merge_tree=prefer_merge_tree, extract_regions=False
+    )
 
     assert sim.conflicted_files == ["conflict.txt"]
     assert sim.regions == []
@@ -158,7 +166,9 @@ def test_conflicted_paths_helper_is_empty_for_a_clean_merge(two_branch_repo: Pat
 # ------------------------------------------- (c) fallback routing and cleanup
 
 
-def test_simulate_merge_routes_to_worktree_on_old_git(conflict_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_simulate_merge_routes_to_worktree_on_old_git(
+    conflict_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Hosts with git < 2.38 must transparently take the fallback path.
 
     We cannot install an old git in CI, so the *routing decision* is mocked while
@@ -174,7 +184,9 @@ def test_simulate_merge_routes_to_worktree_on_old_git(conflict_repo: Path, monke
     assert sim.conflicted_files == ["conflict.txt"]
 
 
-def test_simulate_merge_uses_merge_tree_when_supported(conflict_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_simulate_merge_uses_merge_tree_when_supported(
+    conflict_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     repo = Repo(conflict_repo)
     monkeypatch.setattr(Repo, "supports_merge_tree", lambda self: True)
 
@@ -233,7 +245,9 @@ def test_worktree_fallback_survives_repeated_runs(conflict_repo: Path) -> None:
 
 
 @BOTH_STRATEGIES
-def test_already_up_to_date_is_clean_not_an_error(builder: RepoBuilder, prefer_merge_tree: bool) -> None:
+def test_already_up_to_date_is_clean_not_an_error(
+    builder: RepoBuilder, prefer_merge_tree: bool
+) -> None:
     builder.file("a.txt", "1\n").commit("base").branch("feature").checkout("main")
     builder.file("b.txt", "2\n").commit("main moves on")
     repo = Repo(builder.build())
@@ -247,14 +261,18 @@ def test_already_up_to_date_is_clean_not_an_error(builder: RepoBuilder, prefer_m
 
 
 @BOTH_STRATEGIES
-def test_merging_a_ref_into_itself_is_up_to_date(simple_repo: Path, prefer_merge_tree: bool) -> None:
+def test_merging_a_ref_into_itself_is_up_to_date(
+    simple_repo: Path, prefer_merge_tree: bool
+) -> None:
     sim = simulate_merge(Repo(simple_repo), "main", "main", prefer_merge_tree=prefer_merge_tree)
 
     assert (sim.up_to_date, sim.clean) == (True, True)
 
 
 @BOTH_STRATEGIES
-def test_binary_conflict_is_marked_not_decoded(builder: RepoBuilder, prefer_merge_tree: bool) -> None:
+def test_binary_conflict_is_marked_not_decoded(
+    builder: RepoBuilder, prefer_merge_tree: bool
+) -> None:
     builder.scenario_binary_file()
     repo = Repo(builder.build())
 
@@ -270,7 +288,9 @@ def test_binary_conflict_is_marked_not_decoded(builder: RepoBuilder, prefer_merg
 
 
 @BOTH_STRATEGIES
-def test_paths_with_spaces_and_unicode_survive_parsing(builder: RepoBuilder, prefer_merge_tree: bool) -> None:
+def test_paths_with_spaces_and_unicode_survive_parsing(
+    builder: RepoBuilder, prefer_merge_tree: bool
+) -> None:
     path = "dir with space/ünïcodé — file.txt"
     builder.file(path, "a\nb\nc\n").commit("base")
     builder.branch("feature").file(path, "FEATURE\nb\nc\n").commit("feature edit")
@@ -287,7 +307,9 @@ def test_paths_with_spaces_and_unicode_survive_parsing(builder: RepoBuilder, pre
 
 
 @BOTH_STRATEGIES
-def test_modify_delete_conflict_keeps_the_path(builder: RepoBuilder, prefer_merge_tree: bool) -> None:
+def test_modify_delete_conflict_keeps_the_path(
+    builder: RepoBuilder, prefer_merge_tree: bool
+) -> None:
     """A conflict with no markers must still name the file (not be dropped)."""
     builder.file("doomed.py", "a\nb\nc\n").commit("base")
     builder.branch("feature").remove("doomed.py").commit("delete it")
@@ -339,7 +361,9 @@ def test_several_conflicted_files_are_sorted(builder: RepoBuilder, prefer_merge_
 
 
 @BOTH_STRATEGIES
-def test_unrelated_histories_are_reported_not_raised(builder: RepoBuilder, prefer_merge_tree: bool) -> None:
+def test_unrelated_histories_are_reported_not_raised(
+    builder: RepoBuilder, prefer_merge_tree: bool
+) -> None:
     builder.file("a.txt", "1\n").commit("main root")
     builder.git("checkout", "--orphan", "other")
     builder.git("rm", "-rf", "-q", ".", check=False)

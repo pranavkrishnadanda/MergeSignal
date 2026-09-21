@@ -383,7 +383,12 @@ def _md_table(headers: list[str], rows: list[list[str]]) -> list[str]:
 def summary_rows_md(report: Report) -> list[str]:
     """The shared four-column summary table, as markdown lines."""
     rows = [
-        [f"`{md_escape(name)}`", f"`{status_symbol(status)}` {status}", str(count), md_escape(summary) or "-"]
+        [
+            f"`{md_escape(name)}`",
+            f"`{status_symbol(status)}` {status}",
+            str(count),
+            md_escape(summary) or "-",
+        ]
         for name, status, count, summary in summary_table(report)
     ]
     if not rows:

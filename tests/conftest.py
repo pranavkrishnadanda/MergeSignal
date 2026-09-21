@@ -172,7 +172,13 @@ def write_config(tmp_path: Path) -> Callable[[str], Path]:
 def make_hunk() -> Callable[..., Hunk]:
     """Build a :class:`~mergesignal.models.Hunk` with sensible defaults."""
 
-    def _make(file_path: str = "a.py", base: tuple[int, int] = (1, 2), head: tuple[int, int] = (1, 2), added: list[str] | None = None, removed: list[str] | None = None) -> Hunk:
+    def _make(
+        file_path: str = "a.py",
+        base: tuple[int, int] = (1, 2),
+        head: tuple[int, int] = (1, 2),
+        added: list[str] | None = None,
+        removed: list[str] | None = None,
+    ) -> Hunk:
         return Hunk(
             file_path=file_path,
             base_range=LineRange(start=base[0], end=base[1]),
@@ -188,12 +194,26 @@ def make_hunk() -> Callable[..., Hunk]:
 def make_diff(make_hunk: Callable[..., Hunk]) -> Callable[..., Diff]:
     """Build a one-file :class:`~mergesignal.models.Diff`."""
 
-    def _make(path: str = "a.py", *, base: str = "main", head: str = "feature", language: str | None = "python") -> Diff:
+    def _make(
+        path: str = "a.py",
+        *,
+        base: str = "main",
+        head: str = "feature",
+        language: str | None = "python",
+    ) -> Diff:
         hunk = make_hunk(file_path=path)
         return Diff(
             base=base,
             head=head,
-            files=[DiffFile(path=path, hunks=[hunk], language=language, additions=len(hunk.added_lines), deletions=len(hunk.removed_lines))],
+            files=[
+                DiffFile(
+                    path=path,
+                    hunks=[hunk],
+                    language=language,
+                    additions=len(hunk.added_lines),
+                    deletions=len(hunk.removed_lines),
+                )
+            ],
         )
 
     return _make
@@ -203,7 +223,12 @@ def make_diff(make_hunk: Callable[..., Hunk]) -> Callable[..., Diff]:
 def make_finding() -> Callable[..., Finding]:
     """Build a :class:`~mergesignal.models.Finding` with sensible defaults."""
 
-    def _make(signal: str = "semantic", severity: str = "high", title: str = "example finding", **kwargs: object) -> Finding:
+    def _make(
+        signal: str = "semantic",
+        severity: str = "high",
+        title: str = "example finding",
+        **kwargs: object,
+    ) -> Finding:
         return Finding(signal=signal, severity=severity, title=title, **kwargs)  # type: ignore[arg-type]
 
     return _make
@@ -217,11 +242,18 @@ def make_report(make_finding: Callable[..., Finding]) -> Callable[..., Report]:
     ``error`` signal, which is exactly what renderer snapshot tests need.
     """
 
-    def _make(*, base: str = "main", head: str = "feature", signals: list[Signal] | None = None) -> Report:
+    def _make(
+        *, base: str = "main", head: str = "feature", signals: list[Signal] | None = None
+    ) -> Report:
         if signals is None:
             signals = [
                 Signal(name="conflicts", status="ok", summary="merges cleanly"),
-                Signal(name="semantic", status="findings", summary="1 potential break", findings=[make_finding(file="lib.py", line=3)]),
+                Signal(
+                    name="semantic",
+                    status="findings",
+                    summary="1 potential break",
+                    findings=[make_finding(file="lib.py", line=3)],
+                ),
                 Signal(name="overlap", status="skipped", summary="no other branches supplied"),
                 Signal(name="risk", status="error", summary="not implemented"),
             ]
@@ -259,6 +291,12 @@ def isolated_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     accidentally makes a network call, and keeps offline behaviour (FR-8) as the
     default the suite exercises.
     """
-    for name in ("GITHUB_TOKEN", "GH_TOKEN", "MERGESIGNAL_APP_ID", "MERGESIGNAL_PRIVATE_KEY", "MERGESIGNAL_WEBHOOK_SECRET"):
+    for name in (
+        "GITHUB_TOKEN",
+        "GH_TOKEN",
+        "MERGESIGNAL_APP_ID",
+        "MERGESIGNAL_PRIVATE_KEY",
+        "MERGESIGNAL_WEBHOOK_SECRET",
+    ):
         monkeypatch.delenv(name, raising=False)
     yield

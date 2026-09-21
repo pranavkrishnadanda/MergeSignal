@@ -26,7 +26,9 @@ pytestmark = pytest.mark.integration
 RECENT = datetime.now(UTC) - timedelta(days=10)
 
 
-def context(path: Path, *, base: str = "main", head: str = "feature", config: Config | None = None) -> AnalysisContext:
+def context(
+    path: Path, *, base: str = "main", head: str = "feature", config: Config | None = None
+) -> AnalysisContext:
     """Candidate context: S4 needs the head diff plus the repository itself."""
     config = config or Config()
     repo = Repo(path)
@@ -52,7 +54,9 @@ def test_churn_factor_uses_real_history(recent_builder: RepoBuilder) -> None:
     for i in range(1, 7):
         recent_builder.file("src/hot.py", f"def f():\n    return {i}\n").commit(f"churn {i}")
     recent_builder.branch("feature")
-    path = recent_builder.file("src/hot.py", "def f():\n    return 99\n").commit("candidate").build()
+    path = (
+        recent_builder.file("src/hot.py", "def f():\n    return 99\n").commit("candidate").build()
+    )
 
     signal = risk.analyze(context(path))
 
@@ -66,7 +70,9 @@ def test_churn_factor_uses_real_history(recent_builder: RepoBuilder) -> None:
 def test_co_change_flags_a_coupled_file_missing_from_the_diff(recent_builder: RepoBuilder) -> None:
     recent_builder.file("src/a.py", "A = 0\n").file("src/b.py", "B = 0\n").commit("seed")
     for i in range(1, 4):
-        recent_builder.file("src/a.py", f"A = {i}\n").file("src/b.py", f"B = {i}\n").commit(f"pair {i}")
+        recent_builder.file("src/a.py", f"A = {i}\n").file("src/b.py", f"B = {i}\n").commit(
+            f"pair {i}"
+        )
     recent_builder.branch("feature")
     path = recent_builder.file("src/a.py", "A = 99\n").commit("touch only a").build()
 
@@ -90,7 +96,11 @@ def test_existing_but_untouched_test_file_is_a_partial_penalty(recent_builder: R
     recent_builder.file("src/app.py", "def run_it():\n    return 1\n")
     recent_builder.file("tests/test_app.py", "def test_run_it():\n    assert True\n").commit("seed")
     recent_builder.branch("feature")
-    path = recent_builder.file("src/app.py", "def run_it():\n    return 2\n").commit("change app only").build()
+    path = (
+        recent_builder.file("src/app.py", "def run_it():\n    return 2\n")
+        .commit("change app only")
+        .build()
+    )
 
     signal = risk.analyze(context(path))
 
@@ -106,7 +116,11 @@ def test_touching_the_test_file_clears_the_penalty(recent_builder: RepoBuilder) 
     recent_builder.file("tests/test_app.py", "def test_run_it():\n    assert True\n").commit("seed")
     recent_builder.branch("feature")
     recent_builder.file("src/app.py", "def run_it():\n    return 2\n")
-    path = recent_builder.file("tests/test_app.py", "def test_run_it():\n    assert True  # updated\n").commit("app and test").build()
+    path = (
+        recent_builder.file("tests/test_app.py", "def test_run_it():\n    assert True  # updated\n")
+        .commit("app and test")
+        .build()
+    )
 
     signal = risk.analyze(context(path))
 
@@ -114,7 +128,9 @@ def test_touching_the_test_file_clears_the_penalty(recent_builder: RepoBuilder) 
 
 
 def test_hot_paths_from_config(recent_builder: RepoBuilder) -> None:
-    recent_builder.file("src/pkg/models.py", "X = 1\n").file("src/pkg/util.py", "Y = 1\n").commit("seed")
+    recent_builder.file("src/pkg/models.py", "X = 1\n").file("src/pkg/util.py", "Y = 1\n").commit(
+        "seed"
+    )
     recent_builder.branch("feature")
     recent_builder.file("src/pkg/models.py", "X = 2\n")
     path = recent_builder.file("src/pkg/util.py", "Y = 2\n").commit("touch both").build()
@@ -137,7 +153,9 @@ def test_empty_diff_is_skipped(simple_repo: Path) -> None:
 def test_score_is_reproducible_and_explainable(recent_builder: RepoBuilder) -> None:
     recent_builder.file("src/app.py", "def run_it():\n    return 1\n").commit("seed")
     recent_builder.branch("feature")
-    path = recent_builder.file("src/app.py", "def run_it():\n    return 2\n").commit("change").build()
+    path = (
+        recent_builder.file("src/app.py", "def run_it():\n    return 2\n").commit("change").build()
+    )
 
     ctx = context(path)
     first = risk.analyze(ctx)

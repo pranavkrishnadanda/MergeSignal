@@ -24,7 +24,9 @@ def test_builder_creates_repository_on_default_branch(builder: RepoBuilder) -> N
 
 
 def test_file_commit_chain_is_fluent(builder: RepoBuilder) -> None:
-    path = builder.file("a.py", "x = 1").commit("first").file("b.py", "y = 2").commit("second").build()
+    path = (
+        builder.file("a.py", "x = 1").commit("first").file("b.py", "y = 2").commit("second").build()
+    )
     assert isinstance(path, Path)
     assert [c.message for c in builder.commits] == ["first", "second"]
     assert builder.git("ls-tree", "-r", "--name-only", "HEAD").split() == ["a.py", "b.py"]

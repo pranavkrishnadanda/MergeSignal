@@ -47,7 +47,10 @@ def rsa_key_pair() -> tuple[str, str]:
     ).decode("ascii")
     public_pem = (
         key.public_key()
-        .public_bytes(encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKeyInfo)
+        .public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
         .decode("ascii")
     )
     return private_pem, public_pem
@@ -181,7 +184,9 @@ def test_create_jwt_is_verifiable_and_well_formed(private_pem: str, public_pem: 
 
 
 def test_create_jwt_rejects_a_broken_key() -> None:
-    auth = GitHubAppAuth("1", "-----BEGIN RSA PRIVATE KEY-----\nnope\n-----END RSA PRIVATE KEY-----")
+    auth = GitHubAppAuth(
+        "1", "-----BEGIN RSA PRIVATE KEY-----\nnope\n-----END RSA PRIVATE KEY-----"
+    )
     with pytest.raises(ValueError, match="cannot sign App JWT"):
         auth.create_jwt()
 
@@ -203,7 +208,9 @@ def test_from_env_returns_none_when_unconfigured() -> None:
     assert GitHubAppAuth.from_env() is None
 
 
-def test_from_env_builds_from_environment(monkeypatch: pytest.MonkeyPatch, private_pem: str) -> None:
+def test_from_env_builds_from_environment(
+    monkeypatch: pytest.MonkeyPatch, private_pem: str
+) -> None:
     monkeypatch.setenv("MERGESIGNAL_APP_ID", "999")
     monkeypatch.setenv("MERGESIGNAL_PRIVATE_KEY", private_pem)
     auth = GitHubAppAuth.from_env()
@@ -227,7 +234,9 @@ def test_installation_token_expiry_margin() -> None:
     assert stale.is_expired is True, "a token inside the refresh margin counts as expired"
 
 
-def _token_transport(calls: list[httpx.Request], *, expires_in: float = 3600.0) -> httpx.MockTransport:
+def _token_transport(
+    calls: list[httpx.Request], *, expires_in: float = 3600.0
+) -> httpx.MockTransport:
     """Mock ``/app/installations/.../access_tokens`` and ``/repos/.../installation``."""
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -300,7 +309,9 @@ def test_token_for_repo_resolves_and_caches_the_installation(private_pem: str) -
 
 
 def test_token_exchange_failure_raises_github_error(private_pem: str) -> None:
-    transport = httpx.MockTransport(lambda request: httpx.Response(404, json={"message": "Not Found"}))
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(404, json={"message": "Not Found"})
+    )
     auth = GitHubAppAuth("1", private_pem, transport=transport)
     with pytest.raises(GitHubError) as exc_info:
         auth.installation_token(1)
@@ -308,7 +319,9 @@ def test_token_exchange_failure_raises_github_error(private_pem: str) -> None:
 
 
 def test_missing_token_in_response_raises(private_pem: str) -> None:
-    transport = httpx.MockTransport(lambda request: httpx.Response(201, json={"expires_at": "2030-01-01T00:00:00Z"}))
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(201, json={"expires_at": "2030-01-01T00:00:00Z"})
+    )
     auth = GitHubAppAuth("1", private_pem, transport=transport)
     with pytest.raises(GitHubError, match="no token"):
         auth.installation_token(1)

@@ -196,7 +196,9 @@ def details_section(report: Report, signal_name: str, *, verbose: bool = False) 
     return "\n".join(lines)
 
 
-def truncate_body(body: str, *, limit: int = MAX_COMMENT_CHARS, marker: str = COMMENT_MARKER) -> str:
+def truncate_body(
+    body: str, *, limit: int = MAX_COMMENT_CHARS, marker: str = COMMENT_MARKER
+) -> str:
     """Cut a body to ``limit`` characters at a line boundary, keeping the marker."""
     if len(body) <= limit:
         return body
