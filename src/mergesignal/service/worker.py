@@ -7,9 +7,13 @@ Steps, all inside an isolated temporary directory that is removed in a
 
 1. Shallow-clone (or fetch into a cached bare mirror) just the base and head
    refs. Fork PRs need the head fetched from the fork's clone URL.
-2. Build an :class:`~mergesignal.models.AnalysisContext` and run the signal
+2. Read ``.mergesignal.yaml`` out of the **base** ref — the clone has no
+   working tree, and head's copy must never be trusted: the config controls
+   what MergeSignal does to the repo, so a fork PR cannot silence it by
+   editing the file in its own branch.
+3. Build an :class:`~mergesignal.models.AnalysisContext` and run the signal
    pipeline — reuse :func:`mergesignal.cli.run_pipeline`, never reimplement it.
-3. Render via :mod:`mergesignal.report.github_comment` and upsert the comment.
+4. Render via :mod:`mergesignal.report.github_comment` and upsert the comment.
 
 A per-run timeout bounds the whole thing; exceeding it posts a comment saying
 the analysis timed out rather than leaving the PR with a stale report.
@@ -113,7 +117,6 @@ def analyze_pull_request(
     :param transport: ``httpx`` transport for the client we build (tests).
     :param clone_url: override the URL both refs are fetched from.
     """
-    from mergesignal.config import load_config
     from mergesignal.github.client import GitHubClient
 
     started = time.monotonic()
@@ -142,7 +145,8 @@ def analyze_pull_request(
         )
         _check_deadline(deadline)
 
-        config = config if config is not None else load_config(None, repo_path=repo_path)
+        if config is None:
+            config = _service_config(repo_path, base_ref_name(pr), timeout=_remaining(deadline))
         report = _run_analysis(
             repo_path,
             pr,
@@ -198,6 +202,45 @@ def analyze_pull_request(
             cleanup(checkout)
         if owns_client and client is not None:
             client.close()
+
+
+def _service_config(repo_path: str, base_ref: str, *, timeout: float) -> Any:
+    """The analysed repo's own ``.mergesignal.yaml``, read from the *base* ref.
+
+    The service clone has no working tree, so the file is read straight from
+    the git object store via :meth:`Repo.file_content_at`.
+
+    Base, never head: the config controls what MergeSignal does — enabled
+    signals, thresholds, whether to comment — so it must come from the trusted
+    side of the merge. Letting head supply it would let any fork PR silence the
+    tool by editing the file in its own branch.
+
+    A missing file yields defaults; an unreadable or invalid one is a logged
+    warning plus defaults — a broken config in the repo must not take the
+    service down with it.
+    """
+    from mergesignal.config import (
+        ALT_CONFIG_FILENAMES,
+        CONFIG_FILENAME,
+        ConfigError,
+        config_from_text,
+        default_config,
+    )
+
+    repo = Repo(repo_path, timeout=max(timeout, 1.0))
+    for name in (CONFIG_FILENAME, *ALT_CONFIG_FILENAMES):
+        try:
+            text = repo.file_content_at(base_ref, name)
+        except GitError:
+            text = None
+        if text is None:
+            continue
+        try:
+            return config_from_text(text, source=f"{base_ref}:{name}")
+        except ConfigError as exc:
+            logger.warning("ignoring invalid %s in repo config: %s", name, exc)
+            return default_config()
+    return default_config()
 
 
 def _run_analysis(

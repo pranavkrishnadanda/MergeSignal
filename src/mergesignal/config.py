@@ -252,19 +252,33 @@ def load_config(path: str | os.PathLike[str] | None = None, *, repo_path: str | 
     except OSError as exc:
         raise ConfigError(f"cannot read config file {config_file}: {exc}") from exc
 
+    return config_from_text(raw_text, source=str(config_file.resolve()))
+
+
+def config_from_text(text: str, *, source: str = "<config>") -> Config:
+    """Validate config YAML supplied as a string rather than a file.
+
+    Used by the webhook service, whose fetch-only clone has no working tree to
+    search: the config blob is read straight out of the base ref via
+    ``git show`` and handed here.
+
+    :param source: label used in error messages (a path or ``ref:path``).
+    :raises ConfigError: the text is not valid YAML, is not a mapping, or fails
+        validation.
+    """
     try:
-        data: Any = yaml.safe_load(raw_text)
+        data: Any = yaml.safe_load(text)
     except yaml.YAMLError as exc:
-        raise ConfigError(f"invalid YAML in {config_file}: {exc}") from exc
+        raise ConfigError(f"invalid YAML in {source}: {exc}") from exc
 
     if data is None:
         data = {}
     if not isinstance(data, dict):
-        raise ConfigError(f"{config_file} must contain a YAML mapping, got {type(data).__name__}")
+        raise ConfigError(f"{source} must contain a YAML mapping, got {type(data).__name__}")
 
     data = dict(data)
-    data["source_path"] = str(config_file.resolve())
+    data["source_path"] = source
     try:
         return Config.model_validate(data)
     except ValueError as exc:
-        raise ConfigError(f"invalid configuration in {config_file}: {exc}") from exc
+        raise ConfigError(f"invalid configuration in {source}: {exc}") from exc

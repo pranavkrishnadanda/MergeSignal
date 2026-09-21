@@ -266,6 +266,66 @@ def test_analyze_pull_request_survives_a_peer_listing_failure(tmp_path: Path, up
     assert result.report.signal("overlap").status == "skipped"
 
 
+# --------------------------------------------------------------- repo config
+
+
+def _upstream_with_config(builder: RepoBuilder, config_text: str, *, head_config: str | None = None) -> Path:
+    """``main`` carries ``.mergesignal.yaml``; ``feature`` diverges, optionally editing it."""
+    builder.file("lib.py", "def old_name(x):\n    return x\n")
+    builder.file(".mergesignal.yaml", config_text)
+    builder.commit("initial")
+    builder.branch("feature")
+    builder.file("lib.py", "def new_name(x):\n    return x\n").commit("rename")
+    if head_config is not None:
+        builder.file(".mergesignal.yaml", head_config).commit("pr config change")
+    builder.checkout("main")
+    builder.file("caller.py", "from lib import old_name\n\nold_name(1)\n").commit("add caller")
+    return builder.build()
+
+
+def test_service_reads_the_repo_config_from_the_base_ref(tmp_path: Path, builder: RepoBuilder) -> None:
+    """The fetch-only clone has no working tree, so the config must be read as a blob."""
+    upstream = _upstream_with_config(builder, "enabled_signals: [conflicts, risk]\n")
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+
+    result = analyze_pull_request(SLUG, 7, client=Recorder().client(), clone_url=str(upstream), work_dir=str(work_dir), post_comment=False)
+
+    assert result.ok, result.error
+    assert result.report is not None
+    assert [s.name for s in result.report.signals] == ["conflicts", "risk"], "the repo's enabled_signals must be honoured"
+
+
+def test_head_cannot_override_the_base_config(tmp_path: Path, builder: RepoBuilder) -> None:
+    """A PR must not silence MergeSignal by editing .mergesignal.yaml in its branch."""
+    upstream = _upstream_with_config(
+        builder,
+        "enabled_signals: [conflicts]\n",
+        head_config="enabled_signals: []\n",
+    )
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+
+    result = analyze_pull_request(SLUG, 7, client=Recorder().client(), clone_url=str(upstream), work_dir=str(work_dir), post_comment=False)
+
+    assert result.ok, result.error
+    assert result.report is not None
+    assert [s.name for s in result.report.signals] == ["conflicts"], "head's 'disable everything' edit must be ignored"
+
+
+def test_an_invalid_repo_config_falls_back_to_defaults(tmp_path: Path, builder: RepoBuilder) -> None:
+    """A broken .mergesignal.yaml on base is a warning + defaults, not a failed run."""
+    upstream = _upstream_with_config(builder, "enabled_signals: [not_a_signal]\n")
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+
+    result = analyze_pull_request(SLUG, 7, client=Recorder().client(), clone_url=str(upstream), work_dir=str(work_dir), post_comment=False)
+
+    assert result.ok, result.error
+    assert result.report is not None
+    assert [s.name for s in result.report.signals] == ["conflicts", "semantic", "overlap", "risk"]
+
+
 def test_analyze_pull_request_updates_an_existing_comment(tmp_path: Path, upstream: Path) -> None:
     existing = [{"id": 42, "body": f"stale report\n{COMMENT_MARKER}", "user": {"login": "bot"}, "created_at": "2024-01-01T00:00:00Z"}]
     recorder = Recorder(existing_comments=existing)

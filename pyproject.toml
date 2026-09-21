@@ -47,8 +47,8 @@ dev = [
 mergesignal = "mergesignal.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/mergesignal/mergesignal"
-Source = "https://github.com/mergesignal/mergesignal"
+Homepage = "https://github.com/pranavkrishnadanda/MergeSignal"
+Source = "https://github.com/pranavkrishnadanda/MergeSignal"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
