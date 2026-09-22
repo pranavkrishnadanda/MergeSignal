@@ -53,3 +53,7 @@ jobs:
           path: dist/
 
       - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # PyPI artifacts are immutable — re-pushing a tag (e.g. after a
+          # history rewrite) would otherwise fail on "File already exists".
+          skip_existing: true
